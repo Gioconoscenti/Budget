@@ -532,12 +532,12 @@ function autoCateg(desc, importo) {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  GOOGLE SHEETS STORAGE LAYER
-//  Sostituisce localStorage — dati persistenti e multi-device
+//  GOOGLE SHEETS STORAGE LAYER  (solo GET — evita CORS preflight)
+//  Tutte le operazioni usano GET con ?action=...&payload=<json>
+//  Il Code.gs legge i dati dal parametro "payload"
 // ═══════════════════════════════════════════════════════════════
 let GS_URL = localStorage.getItem('bp_gs_url') || '';
 
-// Carica GS_URL dal localStorage (unica cosa che salviamo lì)
 function loadGsUrl() {
   GS_URL = localStorage.getItem('bp_gs_url') || '';
   const inp = document.getElementById('gsUrl');
@@ -545,63 +545,54 @@ function loadGsUrl() {
 }
 
 function saveGsUrl() {
-  GS_URL = (document.getElementById('gsUrl')?.value || '').trim().replace(/\/+$/,'');
+  GS_URL = (document.getElementById('gsUrl')?.value || '').trim().replace(/\/+$/, '');
   localStorage.setItem('bp_gs_url', GS_URL);
 }
 
-// ── GET ───────────────────────────────────────────────────────
-async function gsGet(action) {
+// ── Chiamata GET universale ───────────────────────────────────
+// action  : stringa (es. 'read', 'write', 'ping')
+// payload : oggetto opzionale serializzato come JSON in query string
+async function gsCall(action, payload) {
   if (!GS_URL) throw new Error('URL Google Sheets non configurato');
-  const res = await fetch(`${GS_URL}?action=${action}`);
-  if (!res.ok) throw new Error(`GS HTTP ${res.status}`);
-  return res.json();
+  let url = GS_URL + '?action=' + encodeURIComponent(action);
+  if (payload) {
+    url += '&payload=' + encodeURIComponent(JSON.stringify(payload));
+  }
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) throw new Error('GS HTTP ' + res.status);
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error('GS risposta non JSON: ' + text.slice(0, 100)); }
 }
 
-// ── POST ──────────────────────────────────────────────────────
-async function gsPost(body) {
-  if (!GS_URL) throw new Error('URL Google Sheets non configurato');
-  const res = await fetch(GS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },  // evita preflight CORS
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) throw new Error(`GS HTTP ${res.status}`);
-  return res.json();
-}
+// Alias leggibili
+const gsGet  = (action)          => gsCall(action);
+const gsPost = (action, payload) => gsCall(action, payload);
 
 // ── CARICAMENTO INIZIALE ──────────────────────────────────────
 async function gsLoad() {
-  if (!GS_URL) {
-    stamp('GS non configurato'); dot('off');
-    hide('loading'); show('app');
-    return;
-  }
+  if (!GS_URL) { stamp('GS non configurato'); dot('off'); hide('loading'); show('app'); return; }
   try {
     stamp('Connessione GS…'); dot('off');
 
-    // Carica in parallelo transazioni + sessioni + config + log
     const [txData, sessData, cfgData, logData] = await Promise.all([
-      gsGet('read'), gsGet('sessions'), gsGet('config'), gsGet('log')
+      gsCall('read'),
+      gsCall('sessions'),
+      gsCall('config'),
+      gsCall('log'),
     ]);
 
-    // Transazioni: separo per fonte
     const rows = txData.rows || [];
-    apiTx = rows.filter(r => r['Fonte'] === 'mediolanum' || r['Fonte'] === 'postepay');
-    csvTx = rows.filter(r => !['mediolanum','postepay','json'].includes(r['Fonte']));
+    apiTx = rows.filter(r => r['Fonte'] === 'mediolanum' || r['Fonte'] === 'postepay').map(gsRowToInternal);
+    csvTx = rows.filter(r => !['mediolanum','postepay','json'].includes(r['Fonte'])).map(gsRowToInternal);
 
-    // Normalizza: rimappa nomi colonne GS → formato interno
-    apiTx = apiTx.map(gsRowToInternal);
-    csvTx = csvTx.map(gsRowToInternal);
-
-    // Sessioni
     activeSessions = (sessData.sessions || []).map(s => ({
       bankId:    s.bankId,
       sessionId: s.sessionId,
-      accounts:  Array.isArray(s.accounts) ? s.accounts : (s.accounts ? JSON.parse(s.accounts) : []),
-      lastSync:  s.lastSync
+      accounts:  Array.isArray(s.accounts) ? s.accounts : safeJsonParse(s.accounts, []),
+      lastSync:  s.lastSync,
     }));
 
-    // Worker URL dalla config GS
     const cfg = cfgData.config || {};
     if (cfg.workerUrl) {
       workerUrl = cfg.workerUrl;
@@ -609,10 +600,9 @@ async function gsLoad() {
       if (inp) inp.value = workerUrl;
     }
 
-    // Log
     syncLog = (logData.entries || []).map(e => ({ time: e.time, msg: e.msg }));
 
-    dot('green'); stamp(`GS sync OK · ${rows.length} tx`);
+    dot('green'); stamp('GS sync OK · ' + rows.length + ' tx');
   } catch(e) {
     dot('red'); stamp('GS errore: ' + e.message);
     toast('Errore GS: ' + e.message, 'ko');
@@ -621,23 +611,39 @@ async function gsLoad() {
   }
 }
 
-// Rimappa riga GS (intestazioni italiane) → oggetto interno JS
 function gsRowToInternal(r) {
-  const data = r['Data Operazione'] || '';
-  const imp  = parseFloat(String(r['Importo'] || '0').replace(',','.')) || 0;
+  const imp     = parseFloat(String(r['Importo'] || '0').replace(',', '.')) || 0;
   const tipoRaw = (r['Tipo importo'] || '').toLowerCase();
-  const tipo = tipoRaw === 'income' ? 'entrata' : tipoRaw === 'expense' ? 'uscita' : (imp >= 0 ? 'entrata' : 'uscita');
+  const tipo    = tipoRaw === 'income' ? 'entrata' : tipoRaw === 'expense' ? 'uscita' : (imp >= 0 ? 'entrata' : 'uscita');
   return {
-    data:        data,
+    data:        r['Data Operazione'] || '',
     dataStr:     r['Data Operazione'] || '',
-    descrizione: r['Descrizione'] || '',
-    tipologia:   r['Tipologia'] || '',
-    importo:     imp,
-    tipo,
-    conto:       r['Conto'] || '',
-    acquirente:  r['Acquirente'] || '',
-    budget:      r['Budget'] || '',
-    source:      r['Fonte'] || 'csv'
+    descrizione: r['Descrizione']     || '',
+    tipologia:   r['Tipologia']       || '',
+    importo:     imp, tipo,
+    conto:       r['Conto']           || '',
+    acquirente:  r['Acquirente']      || '',
+    budget:      r['Budget']          || '',
+    source:      r['Fonte']           || 'csv',
+  };
+}
+
+function safeJsonParse(str, fallback) {
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+
+// Converti riga interna → oggetto con intestazioni GS
+function toGsRow(r) {
+  return {
+    'Data Operazione': r.dataStr || r.data || '',
+    'Descrizione':     r.descrizione  || '',
+    'Importo':         r.importo,
+    'Tipologia':       r.tipologia    || '',
+    'Conto':           r.conto        || '',
+    'Acquirente':      r.acquirente   || '',
+    'Tipo importo':    r.tipo === 'entrata' ? 'Income' : 'Expense',
+    'Budget':          r.budget       || '',
+    'Fonte':           r.source       || 'csv',
   };
 }
 
@@ -645,78 +651,53 @@ function gsRowToInternal(r) {
 async function gsSaveTransactions(newRows) {
   if (!GS_URL || !newRows.length) return;
   try {
-    // Converte in formato GS (intestazioni italiane)
-    const gsRows = newRows.map(r => ({
-      'Data Operazione': r.dataStr || r.data || '',
-      'Descrizione':     r.descrizione || '',
-      'Importo':         r.importo,
-      'Tipologia':       r.tipologia || '',
-      'Conto':           r.conto || '',
-      'Acquirente':      r.acquirente || '',
-      'Tipo importo':    r.tipo === 'entrata' ? 'Income' : 'Expense',
-      'Budget':          r.budget || '',
-      'Fonte':           r.source || 'csv'
-    }));
-    const res = await gsPost({ action: 'write', rows: gsRows });
-    return res;
-  } catch(e) {
-    toast('Errore salvataggio GS: ' + e.message, 'ko');
-  }
+    return await gsCall('write', { rows: newRows.map(toGsRow) });
+  } catch(e) { toast('Errore salvataggio GS: ' + e.message, 'ko'); }
 }
 
-// ── SALVATAGGIO SESSIONE ──────────────────────────────────────
-async function gsSaveSession(sess) {
+async function gsReplaceTransactions(rows) {
   if (!GS_URL) return;
   try {
-    await gsPost({ action: 'saveSession', session: sess });
-  } catch(e) {
-    toast('Errore sessione GS: ' + e.message, 'ko');
-  }
+    return await gsCall('replace', { rows: rows.map(toGsRow) });
+  } catch(e) { toast('Errore GS replace: ' + e.message, 'ko'); }
+}
+
+// ── SESSIONI ──────────────────────────────────────────────────
+async function gsSaveSession(sess) {
+  if (!GS_URL) return;
+  try { await gsCall('saveSession', { session: sess }); }
+  catch(e) { toast('Errore sessione GS: ' + e.message, 'ko'); }
 }
 
 async function gsDeleteSession(bankId) {
   if (!GS_URL) return;
-  try {
-    await gsPost({ action: 'deleteSession', bankId });
-  } catch(e) {
-    console.warn('GS deleteSession:', e.message);
-  }
+  try { await gsCall('deleteSession', { bankId }); }
+  catch(e) { console.warn('GS deleteSession:', e.message); }
 }
 
-// ── SALVATAGGIO CONFIG ────────────────────────────────────────
+// ── CONFIG ────────────────────────────────────────────────────
 async function gsSaveConfig(key, value) {
   if (!GS_URL) return;
-  try {
-    await gsPost({ action: 'saveConfig', key, value });
-  } catch(e) {
-    console.warn('GS saveConfig:', e.message);
-  }
+  try { await gsCall('saveConfig', { key, value }); }
+  catch(e) { console.warn('GS saveConfig:', e.message); }
 }
 
 // ── LOG ───────────────────────────────────────────────────────
 async function gsAddLog(message) {
   if (!GS_URL) return;
-  try {
-    await gsPost({ action: 'addLog', message });
-  } catch(e) {
-    console.warn('GS addLog:', e.message);
-  }
+  try { await gsCall('addLog', { message }); }
+  catch(e) { console.warn('GS addLog:', e.message); }
 }
 
 async function gsClearLog() {
   if (!GS_URL) return;
-  try {
-    await gsPost({ action: 'clearLog' });
-  } catch(e) {
-    console.warn('GS clearLog:', e.message);
-  }
+  try { await gsCall('clearLog'); }
+  catch(e) { console.warn('GS clearLog:', e.message); }
 }
 
-// ── SYNC MANUALE ─────────────────────────────────────────────
+// ── SYNC MANUALE ──────────────────────────────────────────────
 async function gsSync() {
   toast('↻ Sincronizzazione con Google Sheets…', 'info');
-  // Ricarichiamo tutto da zero
-  mergeAll(allTx.filter(r => r.source === 'json'));
   await gsLoad();
   mergeAndRefresh();
   renderSrcSummary();
@@ -1369,39 +1350,33 @@ function updateAcquirente(src) {
 }
 
 function parseCSV(file) {
-  const sep      = document.getElementById('csvSep').value;
-  const colD     = document.getElementById('colData').value.trim();
-  const colDesc  = document.getElementById('colDesc').value.trim();
-  const colAmt   = document.getElementById('colImporto').value.trim();
-  const colTip   = document.getElementById('colTipologia')?.value.trim() || '';
-  const colCont  = document.getElementById('colConto')?.value.trim() || '';
-  const colBudg  = document.getElementById('colBudget')?.value.trim() || '';
-  const src      = document.getElementById('csvSrc').value;
-  const acquirente = ACQUIRENTE_MAP[src] || '';
+  const src = document.getElementById('csvSrc').value;
 
   const reader = new FileReader();
   reader.onload = async e => {
-    // Prova UTF-8 poi latin1
     let text = e.target.result;
     const lines = text.split('\n').filter(l => l.trim());
     if (lines.length < 2) { toast('File vuoto o non leggibile', 'ko'); return; }
 
-    const sep2 = sep === '\t' ? '\t' : sep;
-    const headers = lines[0].split(sep2).map(h => h.trim().replace(/^"|"$/g,''));
+    // Auto-rileva separatore dalla prima riga (; o , o tab)
+    const firstLine = lines[0];
+    const sep2 = firstLine.includes(';') ? ';' : firstLine.includes('\t') ? '\t' : ',';
 
-    const idx = (name) => name ? headers.findIndex(h => h.toLowerCase() === name.toLowerCase()) : -1;
+    const headers = firstLine.split(sep2).map(h => h.trim().replace(/^"|"$/g,''));
+    const hi = (name) => headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
 
-    const iD    = idx(colD);
-    const iDe   = idx(colDesc);
-    const iA    = idx(colAmt);
-    const iTip  = idx(colTip);
-    const iCont = idx(colCont);
-    const iBudg = idx(colBudg);
-    // Cerca anche colonna "Tipo importo" automaticamente
-    const iTipoImp = headers.findIndex(h => h.toLowerCase().includes('tipo'));
+    // Mappa colonne — usa i nomi esatti del CSV di Mediolanum/Postepay
+    const iD       = hi('Data Operazione');
+    const iDe      = hi('Descrizione');
+    const iA       = hi('Importo');
+    const iTip     = hi('Tipologia');
+    const iCont    = hi('Conto');
+    const iAcq     = hi('Acquirente');   // colonna Acquirente dal CSV
+    const iTipoImp = hi('Tipo importo');
+    const iBudg    = hi('Budget');
 
     if (iD < 0 || iDe < 0 || iA < 0) {
-      toast('Colonne obbligatorie non trovate. Intestazioni rilevate: ' + headers.join(' | '), 'ko');
+      toast('Colonne non trovate. Intestazioni: ' + headers.join(' | '), 'ko');
       return;
     }
 
@@ -1413,41 +1388,43 @@ function parseCSV(file) {
       const cols = line.split(sep2).map(c => c.trim().replace(/^"|"$/g,''));
       if (cols.length <= Math.max(iD, iDe, iA)) return;
 
-      // Importo: gestisce separatori italiani (punto migliaia, virgola decimale)
-      const rawAmt = (cols[iA] || '').replace(/\./g,'').replace(',','.');
+      // Importo italiano: "-8,55" → -8.55 / "1.234,56" → 1234.56
+      const rawAmt = (cols[iA] || '')
+        .replace(/[^0-9,.\-]/g, '')   // rimuove tutto tranne cifre, virgola, punto, meno
+        .replace(/\.(?=\d{3}[,])/g, '') // rimuove punto separatore migliaia (es 1.234,)
+        .replace(',', '.');            // virgola decimale → punto
       const amount = parseFloat(rawAmt);
       if (isNaN(amount)) return;
 
       const desc    = cols[iDe] || '';
       const dateStr = cols[iD]  || '';
 
-      // Tipo importo: usa colonna se presente, altrimenti dal segno
+      // Tipo importo: legge la colonna "Tipo importo" (Income/Expense/entrata/uscita)
+      // Se assente, lo deriva dal segno dell'importo
       let tipoImp;
       if (iTipoImp >= 0 && cols[iTipoImp]) {
         const raw = cols[iTipoImp].toLowerCase();
-        tipoImp = raw.includes('income') || raw.includes('entrata') ? 'entrata' : 'uscita';
+        tipoImp = (raw === 'income' || raw === 'entrata') ? 'entrata' : 'uscita';
       } else {
         tipoImp = amount >= 0 ? 'entrata' : 'uscita';
       }
 
-      // Tipologia: usa colonna CSV se presente, altrimenti auto-detect
-      let tipologia;
-      if (iTip >= 0 && cols[iTip] && cols[iTip].trim()) {
-        tipologia = cols[iTip].trim();
-      } else {
-        tipologia = autoCateg(desc, amount);
-      }
+      // Tipologia: dalla colonna CSV se presente, altrimenti auto-detect
+      const tipologia = (iTip >= 0 && cols[iTip]?.trim())
+        ? cols[iTip].trim()
+        : autoCateg(desc, amount);
 
-      // Conto: usa colonna CSV, altrimenti usa il selettore manuale
-      let conto = '';
-      if (iCont >= 0 && cols[iCont] && cols[iCont].trim()) {
-        conto = cols[iCont].trim();
-      } else {
-        const manuale = document.getElementById('contoManuale')?.value || '';
-        if (manuale) conto = manuale;
-      }
+      // Conto: dalla colonna CSV, altrimenti selettore manuale
+      const conto = (iCont >= 0 && cols[iCont]?.trim())
+        ? cols[iCont].trim()
+        : (document.getElementById('contoManuale')?.value || '');
 
-      // Budget
+      // Acquirente: dalla colonna CSV (campo reale), altrimenti dalla fonte selezionata
+      const acquirente = (iAcq >= 0 && cols[iAcq]?.trim())
+        ? cols[iAcq].trim()
+        : (ACQUIRENTE_MAP[src] || '');
+
+      // Budget: dalla colonna CSV oppure derivato dalla tipologia
       const budget = getBudget(tipologia, iBudg >= 0 ? (cols[iBudg] || '') : '');
 
       const key = `${dateStr}|${amount}|${desc}`;
@@ -1504,26 +1481,15 @@ function renderSrcSummary() {
 
 async function clearApiTx() {
   apiTx = [];
-  // Riscrivi tutto il foglio senza le righe API
-  const remaining = allTx.filter(r => r.source === 'json' || csvTx.some(c => c === r));
-  await gsPost({ action: 'replace', rows: remaining.concat(csvTx).map(r => ({
-    'Data Operazione': r.dataStr||r.data||'', 'Descrizione': r.descrizione||'',
-    'Importo': r.importo, 'Tipologia': r.tipologia||'', 'Conto': r.conto||'',
-    'Acquirente': r.acquirente||'', 'Tipo importo': r.tipo==='entrata'?'Income':'Expense',
-    'Budget': r.budget||'', 'Fonte': r.source||'csv'
-  }))});
+  const remaining = csvTx;
+  await gsReplaceTransactions(remaining);
   toast('Transazioni API rimosse', 'ok');
   mergeAndRefresh(); renderSrcSummary();
 }
 async function clearCsvTx() {
   csvTx = [];
-  const remaining = allTx.filter(r => r.source !== 'csv').concat(apiTx);
-  await gsPost({ action: 'replace', rows: remaining.map(r => ({
-    'Data Operazione': r.dataStr||r.data||'', 'Descrizione': r.descrizione||'',
-    'Importo': r.importo, 'Tipologia': r.tipologia||'', 'Conto': r.conto||'',
-    'Acquirente': r.acquirente||'', 'Tipo importo': r.tipo==='entrata'?'Income':'Expense',
-    'Budget': r.budget||'', 'Fonte': r.source||'csv'
-  }))});
+  const remaining = apiTx;
+  await gsReplaceTransactions(remaining);
   toast('Transazioni CSV rimosse', 'ok');
   mergeAndRefresh(); renderSrcSummary();
 }

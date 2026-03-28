@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilancio Personale</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg:#07080f; --s1:#0e0f1a; --s2:#151624; --border:#1f2035; --border2:#2a2b45;
+  --acc:#5b6af5; --acc2:#00c896; --red:#f0485a; --gold:#f5b731;
+  --text:#dde1f0; --muted:#565870; --muted2:#8589a8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Space Mono',monospace;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 40% at 10% 10%,rgba(91,106,245,.07) 0%,transparent 60%),radial-gradient(ellipse 50% 50% at 90% 90%,rgba(0,200,150,.04) 0%,transparent 60%);pointer-events:none;z-index:0;}
+.shell{display:flex;min-height:100vh;position:relative;z-index:1;}
+
+/* NAV */
+nav{width:220px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:32px 0;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.nav-logo{padding:0 24px 28px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.nav-logo h1{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.5px;line-height:1.2;background:linear-gradient(135deg,var(--text),var(--acc));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-logo p{color:var(--muted);font-size:9px;letter-spacing:1.5px;margin-top:4px;}
+.nav-section{padding:0 12px;margin-bottom:4px;}
+.nav-lbl{font-size:9px;letter-spacing:2px;color:var(--muted);padding:0 8px;margin-bottom:6px;}
+.nav-btn{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--muted2);font-family:'Space Mono',monospace;font-size:11px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all .15s;text-align:left;letter-spacing:.2px;}
+.nav-btn:hover{background:var(--s2);color:var(--text);}
+.nav-btn.active{background:rgba(91,106,245,.15);color:var(--acc);border:1px solid rgba(91,106,245,.2);}
+.nav-btn .ico{font-size:14px;width:20px;text-align:center;}
+.nav-sep{height:1px;background:var(--border);margin:12px 12px;}
+.nav-foot{margin-top:auto;padding:16px 24px;border-top:1px solid var(--border);}
+.status-pill{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted);}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--acc2);box-shadow:0 0 6px var(--acc2);animation:blink 2.5s infinite;}
+.dot.red{background:var(--red);box-shadow:0 0 6px var(--red);}
+.dot.off{background:var(--muted);box-shadow:none;animation:none;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* SYNC BADGE */
+.sync-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.25);color:var(--acc2);font-size:9px;letter-spacing:.8px;padding:3px 9px;border-radius:50px;}
+.sync-badge.warn{background:rgba(245,183,49,.08);border-color:rgba(245,183,49,.3);color:var(--gold);}
+.sync-badge.err{background:rgba(240,72,90,.08);border-color:rgba(240,72,90,.3);color:var(--red);}
+
+/* MAIN */
+main{flex:1;padding:36px 32px;overflow-x:hidden;}
+.topbar{display:flex;flex-direction:column;gap:12px;margin-bottom:28px;}
+.topbar-row1{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.topbar h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.5px;}
+.frow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.frow-label{font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-right:2px;}
+.fb{background:var(--s1);border:1px solid var(--border);color:var(--muted2);padding:6px 13px;border-radius:50px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.5px;cursor:pointer;transition:all .15s;}
+.fb:hover,.fb.active{background:var(--acc);border-color:var(--acc);color:#fff;}
+select.fb{appearance:none;padding-right:22px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23565870'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
+
+/* SECTIONS */
+.section{display:none;}.section.active{display:block;}
+
+/* KPI */
+.krow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:13px;padding:20px 22px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s;}
+.kpi:hover{border-color:var(--border2);transform:translateY(-1px);}
+.kpi-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.kpi-lbl{font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);}
+.kpi-ico{font-size:16px;opacity:.2;}
+.kpi-val{font-family:'Syne',sans-serif;font-size:clamp(19px,2.3vw,26px);font-weight:700;letter-spacing:-1px;margin-top:9px;line-height:1;}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:5px;}
+.cg{color:var(--acc2)}.cr{color:var(--red)}.ca{color:var(--acc)}.cgo{color:var(--gold)}.ct{color:var(--text)}
+
+/* CARD */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:13px;padding:22px 26px;margin-bottom:18px;}
+.card-ttl{font-family:'Syne',sans-serif;font-size:14px;font-weight:600;letter-spacing:-.3px;}
+.card-sub{font-size:10px;color:var(--muted);margin-top:3px;margin-bottom:18px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px;}
+.cw{position:relative;height:250px;}
+.cw-lg{position:relative;height:310px;}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:11px;}
+thead tr{background:var(--s2);}
+th{padding:9px 14px;text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:400;cursor:pointer;white-space:nowrap;}
+th:hover{color:var(--text);}
+td{padding:11px 14px;border-bottom:1px solid rgba(31,32,53,.8);white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
+tbody tr:hover{background:rgba(91,106,245,.04);}
+.badge{background:var(--s2);border:1px solid var(--border2);padding:2px 8px;border-radius:50px;font-size:9px;color:var(--muted2);letter-spacing:.3px;display:inline-block;}
+.badge.green{border-color:rgba(0,200,150,.3);color:var(--acc2);background:rgba(0,200,150,.06);}
+.badge.blue{border-color:rgba(91,106,245,.3);color:var(--acc);background:rgba(91,106,245,.06);}
+.badge.gold{border-color:rgba(245,183,49,.3);color:var(--gold);background:rgba(245,183,49,.06);}
+.ai{color:var(--acc2);font-weight:700;}.ao{color:var(--red);font-weight:700;}
+
+/* TOOLBAR */
+.tbl-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+.sbox{background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:'Space Mono',monospace;font-size:10px;padding:7px 13px;border-radius:8px;outline:none;width:200px;transition:border-color .2s;}
+.sbox:focus{border-color:var(--acc);}
+.sbox::placeholder{color:var(--muted);}
+
+/* PAGINATION */
+.pag{display:flex;gap:5px;justify-content:center;padding:14px 0 2px;flex-wrap:wrap;}
+.pg{background:var(--s2);border:1px solid var(--border2);color:var(--muted2);width:28px;height:28px;border-radius:6px;cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.pg:hover,.pg.on{background:var(--acc);border-color:var(--acc);color:#fff;}
+
+/* PROGRESS */
+.pr-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:11px;}
+.pr-lbl{width:130px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.pr-bg{flex:1;background:var(--s2);border-radius:50px;height:5px;overflow:hidden;}
+.pr-fill{height:100%;border-radius:50px;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .6s ease;}
+.pr-val{width:80px;text-align:right;color:var(--muted2);font-size:10px;flex-shrink:0;}
+
+/* ── BANCHE: open banking ────────────────────────────────── */
+.bank-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;}
+.bank-card{background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;transition:border-color .2s;}
+.bank-card.connected{border-color:rgba(0,200,150,.3);}
+.bank-card.error{border-color:rgba(240,72,90,.3);}
+.bank-head{display:flex;justify-content:space-between;align-items:center;}
+.bank-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;}
+.bank-meta{font-size:9px;color:var(--muted);line-height:1.7;letter-spacing:.3px;}
+.bank-actions{display:flex;gap:7px;flex-wrap:wrap;}
+
+/* btn variants */
+.btn{background:var(--acc);border:none;color:#fff;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.8px;padding:7px 14px;border-radius:7px;cursor:pointer;transition:all .15s;}
+.btn:hover{opacity:.85;transform:translateY(-1px);}
+.btn.ghost{background:transparent;border:1px solid var(--border2);color:var(--muted2);}
+.btn.ghost:hover{border-color:var(--acc);color:var(--acc);}
+.btn.danger{background:rgba(240,72,90,.15);border:1px solid rgba(240,72,90,.3);color:var(--red);}
+.btn.danger:hover{background:var(--red);color:#fff;}
+.btn.sm{padding:5px 10px;font-size:8.5px;}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+
+/* WORKER CONFIG */
+.worker-cfg{background:rgba(91,106,245,.06);border:1px solid rgba(91,106,245,.2);border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.worker-cfg label{font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+.worker-inp{flex:1;min-width:280px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:'Space Mono',monospace;font-size:10px;padding:7px 12px;border-radius:7px;outline:none;transition:border-color .2s;}
+.worker-inp:focus{border-color:var(--acc);}
+.worker-inp::placeholder{color:var(--muted);}
+
+/* CSV import */
+.drop-zone{border:2px dashed var(--border2);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;font-size:11px;color:var(--muted2);}
+.drop-zone:hover,.drop-zone.over{border-color:var(--acc);color:var(--acc);background:rgba(91,106,245,.04);}
+.drop-zone .ico2{font-size:28px;margin-bottom:10px;opacity:.5;}
+.csv-cfg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+.inp-grp{display:flex;flex-direction:column;gap:5px;}
+.inp-grp label{font-size:9px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;}
+.inp-grp input,.inp-grp select{background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:'Space Mono',monospace;font-size:10px;padding:6px 10px;border-radius:6px;outline:none;transition:border-color .2s;}
+.inp-grp input:focus,.inp-grp select:focus{border-color:var(--acc);}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:20px;}
+.spin{width:34px;height:34px;border:2px solid var(--border2);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin.sm{width:14px;height:14px;border-width:1.5px;display:inline-block;vertical-align:middle;margin-right:5px;}
+.err{text-align:center;padding:80px 40px;}
+.err h3{font-family:'Syne',sans-serif;font-size:20px;margin:14px 0 10px;}
+.err p{color:var(--muted2);font-size:11px;line-height:1.8;}
+.err code{background:var(--s2);border:1px solid var(--border2);padding:2px 7px;border-radius:4px;color:var(--acc2);}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--s1);border:1px solid var(--border2);border-radius:9px;padding:12px 18px;font-size:11px;z-index:500;transform:translateY(60px);opacity:0;transition:all .25s;max-width:320px;line-height:1.6;}
+#toast.show{transform:translateY(0);opacity:1;}
+#toast.ok{border-color:rgba(0,200,150,.4);}
+#toast.ko{border-color:rgba(240,72,90,.4);}
+#toast.info{border-color:rgba(91,106,245,.4);}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);z-index:400;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-bg.open{opacity:1;pointer-events:all;}
+.modal{background:var(--s1);border:1px solid var(--border2);border-radius:14px;padding:28px;width:520px;max-width:92vw;max-height:86vh;overflow-y:auto;transform:translateY(16px);transition:transform .2s;}
+.modal-bg.open .modal{transform:translateY(0);}
+.modal-ttl{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{background:none;border:none;color:var(--muted2);cursor:pointer;font-size:16px;line-height:1;}
+.modal-close:hover{color:var(--text);}
+.modal pre{background:var(--s2);border:1px solid var(--border2);border-radius:7px;padding:12px;font-size:10px;overflow-x:auto;white-space:pre;color:var(--acc2);line-height:1.7;}
+.modal p{font-size:11px;color:var(--muted2);line-height:1.9;margin-bottom:8px;}
+.modal strong{color:var(--text);}
+.modal code{background:var(--s2);border:1px solid var(--border2);padding:1px 6px;border-radius:4px;color:var(--acc2);font-size:10px;}
+
+/* SOURCE TAG */
+.src-tag{display:inline-flex;align-items:center;gap:4px;font-size:8.5px;padding:1px 6px;border-radius:4px;letter-spacing:.4px;}
+.src-mediolanum{background:rgba(91,106,245,.1);color:var(--acc);border:1px solid rgba(91,106,245,.2);}
+.src-postepay{background:rgba(245,183,49,.08);color:var(--gold);border:1px solid rgba(245,183,49,.2);}
+.src-csv{background:rgba(0,200,150,.06);color:var(--acc2);border:1px solid rgba(0,200,150,.2);}
+.src-json{background:rgba(133,137,168,.08);color:var(--muted2);border:1px solid var(--border2);}
+
+@media(max-width:880px){
+  nav{display:none;}
+  .g2,.g3{grid-template-columns:1fr;}
+  .bank-grid{grid-template-columns:1fr;}
+  .csv-cfg{grid-template-columns:1fr;}
+  main{padding:20px 14px;}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spin"></div>
+  <p style="color:var(--muted);font-size:11px;letter-spacing:1.5px">CARICAMENTO…</p>
+</div>
+
+<div class="shell" id="app" style="display:none">
+<nav>
+  <div class="nav-logo">
+    <h1>Bilancio<br>Personale</h1>
+    <p>DASHBOARD</p>
+  </div>
+  <div class="nav-section">
+    <div class="nav-lbl">ANALISI</div>
+    <button class="nav-btn active" onclick="go('overview',this)"><span class="ico">◈</span>Panoramica</button>
+    <button class="nav-btn" onclick="go('flussi',this)"><span class="ico">⇅</span>Flussi</button>
+    <button class="nav-btn" onclick="go('categorie',this)"><span class="ico">◎</span>Categorie</button>
+    <button class="nav-btn" onclick="go('transazioni',this)"><span class="ico">≡</span>Transazioni</button>
+    <button class="nav-btn" onclick="go('investimenti',this)"><span class="ico">◆</span>Investimenti</button>
+  </div>
+  <div class="nav-sep"></div>
+  <div class="nav-section">
+    <div class="nav-lbl">DATI</div>
+    <button class="nav-btn" onclick="go('banche',this)" id="nav-banche"><span class="ico">🔗</span>Banche</button>
+    <button class="nav-btn" onclick="go('importa',this)"><span class="ico">↓</span>Importa CSV</button>
+  </div>
+  <div class="nav-foot">
+    <div class="status-pill"><div class="dot" id="status-dot"></div><span id="stxt">—</span></div>
+  </div>
+</nav>
+
+<main>
+  <div class="topbar">
+    <div class="topbar-row1">
+      <h2 id="ptitle">Panoramica</h2>
+      <div class="frow" id="period-bar">
+        <span class="frow-label">Periodo</span>
+        <button class="fb active" data-p="all"       onclick="setPeriod(this,'all')">Tutti</button>
+        <button class="fb"        data-p="thismonth" onclick="setPeriod(this,'thismonth')">Questo mese</button>
+        <button class="fb"        data-p="lastmonth" onclick="setPeriod(this,'lastmonth')">Mese scorso</button>
+        <button class="fb"        data-p="thisyear"  onclick="setPeriod(this,'thisyear')">Quest'anno</button>
+        <select class="fb" id="yr-sel" onchange="setYear(this.value)"><option value="">Anno…</option></select>
+        <select class="fb" id="mo-sel" onchange="setMonth(this.value)"><option value="">Mese…</option></select>
+      </div>
+    </div>
+    <div class="frow" id="global-filters">
+      <span class="frow-label">Filtra per</span>
+      <select class="fb" id="g-cnt-sel" onchange="setGlobal('contoG',this.value)"><option value="">Tutti i conti</option></select>
+      <select class="fb" id="g-acq-sel" onchange="setGlobal('acquirenteG',this.value)"><option value="">Tutti gli acquirenti</option></select>
+      <select class="fb" id="g-src-sel" onchange="setGlobal('sourceG',this.value)">
+        <option value="">Tutte le fonti</option>
+        <option value="json">📄 data.json</option>
+        <option value="csv">📥 CSV importato</option>
+        <option value="mediolanum">🏦 Mediolanum</option>
+        <option value="postepay">📮 Postepay</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ── OVERVIEW ──────────────────────────────────────────── -->
+  <div class="section active" id="sec-overview">
+    <div class="krow">
+      <div class="kpi"><div class="kpi-top"><div class="kpi-lbl">Entrate</div><div class="kpi-ico">↑</div></div><div class="kpi-val cg" id="k-inc">—</div><div class="kpi-sub" id="k-inc-n">—</div></div>
+      <div class="kpi"><div class="kpi-top"><div class="kpi-lbl">Uscite</div><div class="kpi-ico">↓</div></div><div class="kpi-val cr" id="k-exp">—</div><div class="kpi-sub" id="k-exp-n">—</div></div>
+      <div class="kpi"><div class="kpi-top"><div class="kpi-lbl">Saldo netto</div><div class="kpi-ico">≡</div></div><div class="kpi-val ct" id="k-bal">—</div><div class="kpi-sub" id="k-bal-s">—</div></div>
+      <div class="kpi"><div class="kpi-top"><div class="kpi-lbl">Risparmio</div><div class="kpi-ico">%</div></div><div class="kpi-val ca" id="k-sav">—</div><div class="kpi-sub">su entrate totali</div></div>
+      <div class="kpi"><div class="kpi-top"><div class="kpi-lbl">Media mensile uscite</div><div class="kpi-ico">⌀</div></div><div class="kpi-val ct" id="k-avg">—</div><div class="kpi-sub" id="k-avg-s">—</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-ttl">Flusso mensile</div><div class="card-sub">Entrate vs Uscite</div><div class="cw"><canvas id="ch-bar"></canvas></div></div>
+      <div class="card"><div class="card-ttl">Saldo cumulativo</div><div class="card-sub">Andamento nel tempo</div><div class="cw"><canvas id="ch-line"></canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-ttl">Top categorie di spesa</div><div class="card-sub">Prime 8 tipologie</div><div id="cat-bars"></div></div>
+      <div class="card"><div class="card-ttl">Ripartizione tipologie</div><div class="card-sub">Distribuzione uscite</div><div class="cw"><canvas id="ch-donut"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ── FLUSSI ─────────────────────────────────────────────── -->
+  <div class="section" id="sec-flussi">
+    <div class="card"><div class="card-ttl">Entrate e Uscite mensili</div><div class="card-sub">Confronto periodo</div><div class="cw-lg"><canvas id="ch-bar2"></canvas></div></div>
+    <div class="g2">
+      <div class="card"><div class="card-ttl">Saldo netto mensile</div><div class="card-sub">Differenza entrate − uscite</div><div class="cw"><canvas id="ch-net"></canvas></div></div>
+      <div class="card"><div class="card-ttl">Andamento cumulativo</div><div class="card-sub">Saldo nel tempo</div><div class="cw"><canvas id="ch-line2"></canvas></div></div>
+    </div>
+    <div class="card"><div class="card-ttl">Per conto</div><div class="card-sub">Entrate e uscite per conto bancario</div><div class="cw"><canvas id="ch-conto"></canvas></div></div>
+  </div>
+
+  <!-- ── CATEGORIE ──────────────────────────────────────────── -->
+  <div class="section" id="sec-categorie">
+    <div class="g2">
+      <div class="card"><div class="card-ttl">Uscite per tipologia</div><div class="card-sub">Importo totale</div><div style="height:340px"><canvas id="ch-cat-bar"></canvas></div></div>
+      <div class="card"><div class="card-ttl">Quota %</div><div class="card-sub">Peso relativo</div><div style="height:340px"><canvas id="ch-cat-pie"></canvas></div></div>
+    </div>
+    <div class="card"><div class="card-ttl">Dettaglio categorie</div><div class="card-sub">Tutte le voci per importo</div><div id="cat-detail"></div></div>
+    <div class="card"><div class="card-ttl">Analisi budget</div><div class="card-sub">Confronto budget vs spesa effettiva per categoria</div><div id="budget-detail"></div></div>
+  </div>
+
+  <!-- ── TRANSAZIONI ────────────────────────────────────────── -->
+  <div class="section" id="sec-transazioni">
+    <div class="card">
+      <div class="tbl-bar">
+        <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600">Transazioni</span>
+        <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+          <select class="fb" id="tipo-f" onchange="applyFilters()"><option value="">Tutti i tipi</option><option value="entrata">Entrata</option><option value="uscita">Uscita</option></select>
+          <select class="fb" id="cat-f"  onchange="applyFilters()"><option value="">Tutte le tipologie</option></select>
+          <select class="fb" id="cnt-f"  onchange="applyFilters()"><option value="">Tutti i conti</option></select>
+          <select class="fb" id="src-f"  onchange="applyFilters()">
+            <option value="">Tutte le fonti</option>
+            <option value="json">data.json</option>
+            <option value="csv">CSV</option>
+            <option value="mediolanum">Mediolanum</option>
+            <option value="postepay">Postepay</option>
+          </select>
+          <input class="sbox" id="tx-q" type="text" placeholder="Cerca…" oninput="applyFilters()">
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th onclick="sortBy('data')">DATA ↕</th>
+            <th onclick="sortBy('descrizione')">DESCRIZIONE ↕</th>
+            <th onclick="sortBy('tipologia')">TIPOLOGIA ↕</th>
+            <th onclick="sortBy('conto')">CONTO ↕</th>
+            <th onclick="sortBy('acquirente')">ACQUIRENTE ↕</th>
+            <th onclick="sortBy('budget')">BUDGET ↕</th>
+            <th onclick="sortBy('tipo')">TIPO ↕</th>
+            <th onclick="sortBy('importo')" style="text-align:right">IMPORTO ↕</th>
+          </tr></thead>
+          <tbody id="tx-body"></tbody>
+        </table>
+      </div>
+      <div class="pag" id="tx-pag"></div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);padding-bottom:6px" id="tx-info"></div>
+    </div>
+  </div>
+
+  <!-- ── INVESTIMENTI ───────────────────────────────────────── -->
+  <div class="section" id="sec-investimenti">
+    <div id="inv-kpi" class="krow"></div>
+    <div class="g2">
+      <div class="card"><div class="card-ttl">Composizione portafoglio</div><div class="card-sub">Per tipologia</div><div class="cw"><canvas id="ch-inv-pie"></canvas></div></div>
+      <div class="card"><div class="card-ttl">Top 10 posizioni</div><div class="card-sub">Per valore</div><div class="cw"><canvas id="ch-inv-bar"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Dettaglio investimenti</div>
+      <div class="card-sub" id="inv-cnt">—</div>
+      <div class="tbl-wrap"><table><thead><tr id="inv-head"></tr></thead><tbody id="inv-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ── BANCHE ─────────────────────────────────────────────── -->
+  <div class="section" id="sec-banche">
+
+    <!-- Google Sheets config -->
+    <div class="worker-cfg" style="background:rgba(0,200,150,.05);border-color:rgba(0,200,150,.25)">
+      <label style="color:var(--acc2)">Google Sheets URL</label>
+      <input class="worker-inp" id="gsUrl" placeholder="https://script.google.com/macros/s/AKfy.../exec" oninput="saveGsUrl()">
+      <button class="btn sm" style="background:var(--acc2);color:#07080f" onclick="gsSync()">↻ Sync GS</button>
+      <button class="btn ghost sm" onclick="testGs()">Testa</button>
+      <button class="btn ghost sm" onclick="openModal('modal-gs-setup')">📄 Setup guide</button>
+    </div>
+
+    <!-- Worker config -->
+    <div class="worker-cfg">
+      <label>Worker URL (Enable Banking)</label>
+      <input class="worker-inp" id="workerUrl" placeholder="https://speselab-proxy.TUO.workers.dev" oninput="saveWorkerUrl()">
+      <button class="btn ghost sm" onclick="testWorker()">Testa connessione</button>
+      <button class="btn ghost sm" onclick="openModal('modal-setup')">📄 Setup guide</button>
+    </div>
+
+    <!-- Stato banche -->
+    <div class="bank-grid" id="bank-grid">
+      <!-- popolato da JS -->
+    </div>
+
+    <!-- Log sync -->
+    <div class="card">
+      <div class="card-ttl">Log sincronizzazione</div>
+      <div class="card-sub">Attività recenti delle connessioni bancarie</div>
+      <div id="sync-log" style="font-size:10px;color:var(--muted2);line-height:2;max-height:200px;overflow-y:auto">
+        <span style="color:var(--muted)">Nessuna attività registrata.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── IMPORTA CSV ────────────────────────────────────────── -->
+  <div class="section" id="sec-importa">
+    <div class="card">
+      <div class="card-ttl">Importa CSV</div>
+      <div class="card-sub">Carica il file esportato dall'area personale Mediolanum o Postepay</div>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+           ondragover="dzOver(event)" ondragleave="dzLeave()" ondrop="dzDrop(event)">
+        <div class="ico2">📥</div>
+        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:600;margin-bottom:6px">Trascina il file CSV qui</div>
+        <div style="font-size:10px;color:var(--muted)">oppure clicca per selezionare · Mediolanum: Area Personale → Conto → Movimenti → Esporta</div>
+      </div>
+      <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleFile(event)">
+
+      <div class="csv-cfg">
+        <div class="inp-grp"><label>Colonna Data</label><input id="colData" value="Data Operazione" placeholder="es: Data Operazione, Data valuta"></div>
+        <div class="inp-grp"><label>Colonna Descrizione</label><input id="colDesc" value="Descrizione" placeholder="es: Descrizione, Causale"></div>
+        <div class="inp-grp"><label>Colonna Importo</label><input id="colImporto" value="Importo" placeholder="es: Importo, Dare/Avere"></div>
+        <div class="inp-grp"><label>Colonna Tipologia (opz.)</label><input id="colTipologia" value="Tipologia" placeholder="lascia vuoto per auto-detect"></div>
+        <div class="inp-grp"><label>Colonna Conto (opz.)</label><input id="colConto" value="Conto" placeholder="es: Conto"></div>
+        <div class="inp-grp"><label>Colonna Budget (opz.)</label><input id="colBudget" value="Budget" placeholder="es: Budget"></div>
+        <div class="inp-grp"><label>Separatore</label>
+          <select id="csvSep">
+            <option value="&#9;">Tab</option>
+            <option value=";">Punto e virgola ( ; )</option>
+            <option value=",">Virgola ( , )</option>
+          </select>
+        </div>
+        <div class="inp-grp"><label>Fonte (Acquirente)</label>
+          <select id="csvSrc" onchange="updateAcquirente(this.value)">
+            <option value="mediolanum">Mediolanum → Gioacchino</option>
+            <option value="postepay">Postepay → Alessandra</option>
+            <option value="csv">CSV generico</option>
+          </select>
+        </div>
+      </div>
+      <!-- Conto manuale se non nel CSV -->
+      <div style="background:rgba(91,106,245,.06);border:1px solid rgba(91,106,245,.2);border-radius:8px;padding:12px 16px;margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;white-space:nowrap">Conto (se assente nel CSV)</span>
+        <select id="contoManuale" class="fb" style="min-width:160px">
+          <option value="">— non specificare —</option>
+          <option value="ordinario">Ordinario</option>
+          <option value="straordinario">Straordinario</option>
+        </select>
+        <span style="font-size:10px;color:var(--muted2)">Viene applicato alle righe senza colonna Conto compilata</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn" onclick="exportAllCSV()">↓ Esporta tutto in CSV</button>
+        <button class="btn ghost sm" onclick="clearApiTx()">✕ Rimuovi transazioni API</button>
+        <button class="btn ghost sm" onclick="clearCsvTx()">✕ Rimuovi CSV importati</button>
+      </div>
+    </div>
+
+    <!-- Riepilogo fonti -->
+    <div class="card">
+      <div class="card-ttl">Riepilogo fonti dati</div>
+      <div class="card-sub">Transazioni caricate per origine</div>
+      <div id="src-summary"></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- ── MODAL SETUP GOOGLE SHEETS ─────────────────────────────── -->
+<div class="modal-bg" id="modal-gs-setup" onclick="closeModalBg(event,'modal-gs-setup')">
+  <div class="modal">
+    <div class="modal-ttl">Setup Google Sheets Backend <button class="modal-close" onclick="closeModal('modal-gs-setup')">✕</button></div>
+    <p><strong>STEP 1</strong> — Crea un nuovo Google Sheet su <strong>sheets.google.com</strong>. I fogli vengono creati automaticamente.</p>
+    <p><strong>STEP 2</strong> — Apri <strong>Estensioni → Apps Script</strong>, incolla il contenuto di <code>Code.gs</code> e salva.</p>
+    <p><strong>STEP 3</strong> — Esegui <code>setupSheets()</code> una volta dalla console GAS.</p>
+    <p><strong>STEP 4</strong> — <strong>Deploy → Nuova implementazione → Web app</strong><br>
+    · Esegui come: <strong>Me</strong> · Accesso: <strong>Chiunque</strong><br>
+    · Copia l'URL (termina con <code>/exec</code>)</p>
+    <p><strong>STEP 5</strong> — Incolla l'URL nel campo <em>Google Sheets URL</em> e clicca <em>Sync GS</em>.</p>
+    <p style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.2);border-radius:7px;padding:10px 13px;margin-top:6px">
+      ✓ Dati persistenti su tutti i dispositivi · ✓ Modificabili direttamente nel foglio
+    </p>
+  </div>
+</div>
+
+<!-- ── MODAL SETUP GUIDE ──────────────────────────────────────── -->
+<div class="modal-bg" id="modal-setup" onclick="closeModalBg(event,'modal-setup')">
+  <div class="modal">
+    <div class="modal-ttl">Setup Cloudflare Worker + Enable Banking <button class="modal-close" onclick="closeModal('modal-setup')">✕</button></div>
+    <p><strong>STEP 1</strong> — Vai su <strong>enablebanking.com</strong> → crea account → <em>Applications → Create → Personal</em>.<br>Scarica la chiave RSA privata e copia il tuo <strong>Application ID</strong>.</p>
+    <p><strong>STEP 2</strong> — Deploy Cloudflare Worker (usa i file <code>worker.js</code> + <code>wrangler.toml</code> inclusi nel pacchetto):</p>
+    <pre>npm install -g wrangler && wrangler login
+wrangler kv:namespace create "SESSIONS"
+# → incolla l'ID in wrangler.toml
+
+wrangler secret put PRIVATE_KEY   # incolla chiave .pem
+wrangler secret put APP_ID        # incolla Application ID
+wrangler deploy
+# → https://speselab-proxy.TUO.workers.dev</pre>
+    <p><strong>STEP 3</strong> — In Enable Banking dashboard → Redirect URL:<br><code>https://speselab-proxy.TUO.workers.dev/callback</code></p>
+    <p><strong>STEP 4</strong> — Incolla l'URL Worker nel campo in alto e clicca <em>Connetti</em> su ogni banca.</p>
+    <p style="background:rgba(91,106,245,.08);border:1px solid rgba(91,106,245,.2);border-radius:7px;padding:10px 13px;margin-top:6px">
+      📦 I file <code>worker.js</code>, <code>wrangler.toml</code> e <code>README.md</code> con le istruzioni complete sono inclusi nel pacchetto scaricato.
+    </p>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  STATO GLOBALE
+// ═══════════════════════════════════════════════════════════════
+const DATA_FILE = 'data.json', REFRESH = 10000, PAGE = 20;
+const TITLES = {
+  overview:'Panoramica', flussi:'Flussi', categorie:'Categorie',
+  transazioni:'Transazioni', investimenti:'Investimenti',
+  banche:'Connessioni Bancarie', importa:'Importa CSV'
+};
+const HIDE_TOPBAR = new Set(['banche','importa']);
+
+let allTx = [], allInv = [], filteredTx = [];
+let apiTx  = [];   // caricati da Google Sheets
+let csvTx  = [];   // caricati da Google Sheets
+
+let curSec = 'overview', period = 'all', yearF = '', monthF = '';
+let contoG = '', acquirenteG = '', sourceG = '';
+let sortField = 'data', sortDir = -1, curPage = 1;
+let CH = {}, lastMod = '';
+
+// Enable Banking state
+let workerUrl    = '';  // caricato da Google Sheets Config
+let activeSessions = [];  // caricate da Google Sheets
+let syncLog      = [];
+
+// ── Tabella categorie da Income.csv + Expense.csv (548 keyword) ──────────────
+// Logica: match esatto prima, poi match parziale per sottostringa, infine fallback
+const CSV_RULES = {"ACCREDITO CASHBACK SCONTIPOSTE ACCREDITO CASHBACK SCONTIPOSTE":"Interessi","ACCREDITO VOSTRO FAVORE VERSAMENTO":"Interessi","BONIFICO A VS. FAVORE AGENZIA ENTRATE":"Interessi","BONIFICO A VS. FAVORE ENTERPRISE COSTRUZIONI":"Interessi","ACQUISTO IMMOBILE":"Regali","DISPOSIZIONE VS. FAVORE MAZZOLA CINZIA":"Interessi","INTERESSI NETTI SU VINCOLO":"Interessi","RIMBORSO":"Interessi","RIMBORSO TITOLI SCADUTI":"Interessi","RIMBORSO VINCOLO N. OPER. 2024/001 SCADENZA 27/09/2024":"Interessi","ACCREDITO BONIFICO SEPA SEE DA INPS-IT-ROMA-VIA CIRO IL GRANDE":"Lavoro","ASSEGNO UNICO":"Lavoro","BONIFICO A VS. FAVORE DA INPS":"Lavoro","BONIFICO A VS. FAVORE INPS":"Lavoro","DA INPS-IT-ROMA-VIA CIRO IL GRANDE 21":"Lavoro","ACCREDITO BONIFICO SEPA SEE DA M.ECONOMIA E FINANZE":"Stipendio","ACCREDITO BONIFICO SEPA SEE DA MINISTERO DELL'ISTRUZIONE E DEL MERITO":"Stipendio","DA ISTITUTO COMPRENSIVO PARMA CENTRO":"Stipendio","DA M.ECONOMIA E FINANZE DSII":"Stipendio","EMOLUMENTI":"Stipendio","TRASFERIMENTO P2P":"Pasti","VERSAMENTO DI CONTANTE MOONEY":"Varie","BONIFICO A VS. FAVORE CONSAP CONCESSIONARIA":"Regali","BONIFICO A VS. FAVORE DA CONOSCENTI ANNA":"Regali","BONIFICO A VS. FAVORE DA CONOSCENTI GIOACCHINO":"Regali","BONIFICO A VS. FAVORE DA CONOSCENTI SARA":"Regali","BONIFICO A VS. FAVORE DA DI PIETRO SERGIO":"Regali","BONIFICO A VS. FAVORE DA MEDIOLI FRANCESCO":"Regali","BONIFICO A VS. FAVORE DA RE GIUSEPPINA RITA":"Regali","BONIFICO A VS. FAVORE DILIBERTI GIUSEPPE":"Regali","BONIFICO A VS. FAVORE ELECTROLUX":"Regali","BONIFICO A VS. FAVORE FORESTIERE ALESSANDRA":"Regali","BONIFICO A VS. FAVORE FRANCAVIGLIA ADRIANO":"Regali","BONIFICO - SEPA ISTANTANEO":"Regali","BONIFICO - SEPA ISTANTANEO A VS FAVORE MAURO GIOVANNI":"Regali","BONIFICO - SEPA ISTANTANEO CONOSCENTI GIOACCHINO":"Regali","BONIFICO - SEPA ISTANTANEO CONOSCENTI PIETRO, AGLIERI RINELLA ROSA":"Regali","BONIFICO A MIO MARITO":"Regali","DISPOSIZIONE VS. FAVORE CONOSCENTI PIETRO":"Regali","BONIFICO A VS. FAVORE ASIF CHIMELLI":"Interessi","BONIFICO A VS. FAVORE PAYPAL":"Interessi","BONIFICO A VS. FAVORE DA ENEL ENERGIA":"Interessi","RICARICA EFFETTUATA DA GIUSEPPINA RITA RE":"Regali","ACCREDITO DISPOSIZIONE POSTAGIRO":"Regali","RICARICA PRESSO ESERCENTE":"Altro","DA CENTRO STUDI G. PARINI SOCIETA' COOPERAT":"Stipendio","PER BONIFICO A MIA MOGLIE":"Regali","RICARICA EFFETTUATA DA ALESSANDRA MARIA FORESTIERE":"Altro","PLAFOND PER ABILITAZIONE":"Formazione","CRV*MIRO' PARMA SRL":"Altro","RICARICA EFFETTUATA DA ANNA CONOSCENTI":"Regali","PER ACQUISTO IMMOBILE":"Regali","CEDOLE":"Interessi","T.F.R.":"Stipendio","EUROSIA":"Alimenti","BONIFICO SEPA DA MINISTERO DELL'ISTRUZIONE E DEL MERITO":"Stipendio","BONIFICO SEPA DA INPS":"Lavoro","MAKANAN RISTORANTE":"Regali","LUCIA SILVANA RE":"Regali","ACCREDITO BONIFICO SEPA SEE":"Lavoro","585Q7418605630 RAPPORTI INTERNI SPORTELLO 00702":"Banca - Mutuo","ACER PARMA":"Casa - Manutenzione","ACERO":"Pasti","ACQUOLINA IN TORTA":"Pasti","ACQUISTO CASA":"Banca - Mutuo","ADD. DELEGA INTERNET":"Bollette - Internet","ADDEBITO DISPOSIZIONE BONIFICO SEPA DA APP BANCOPOSTA ADDEBITO BONIFICO EA23061646410341480513899999IT PER FATTURA 56.23":"Bollette - Altro","ADDEBITO DISPOSIZIONE BONIFICO SEPA DA WEB A M MAGOSSO LUCA OU MME":"Shopping - Altro","ADDEBITO DISPOSIZIONE BONIFICO SEPA DA WEB ADDEBITO BONIFICO EA23083127895383480513899999IT PER ALESSANDRA MARIA FORESTIERE-LA METODOLOGIA CLIL PER LA DIDATTICA DELLE DISCIPLINE NON LINGUISTICHE IN LINGUA STRANIERA PERF275 (TASSA+BOLLO)":"Formazione","ADDEBITO PER RICARICA CARTA DA APP RICARICA POSTEPAY":"Banca - Commissioni","ADDEBITO VS. ASSEGNO ABI 03062 CAB 34210":"Casa - Altro","ADMIRAL":"Assicurazione","ADS TRIGNO OVEST MONTENERO":"Pasti","AEROPORTO":"Viaggi","AGRIFARNESE SOCIETA'":"Pasti","AL RISPARMIO CALZATURE":"Shopping - Abbigliamento","ALCHEMIST":"Pasti","ALL'ANTICO VINAIO":"Pasti","ALPIN S.R.L.":"Automobile - Manutenzione","AMMINISTRATORE":"Casa - Manutenzione","ANCESCHI":"Pasti","ANGELICO":"Shopping - Abbigliamento","ANYTIME":"Personale - Sport","AREA DI SERVIZIO":"Pasti","ARTE E GUSTO":"Pasti","ARTE RELIGIOSA SRL":"Varie","ASD DILETTANTI S.POLO":"Personale - Sport","ASIF":"Formazione","ASPIT":"Divertimenti","ATAC":"Viaggi","ATAC SPA":"Viaggi","ATLANTIC":"Pasti","ATM":"Viaggi","AUTOGRILL":"Pasti","AUTOLINEE TOSCANE":"Viaggi","AUTOZATTI":"Automobile - Leasing","B&B":"Viaggi","BABY SERVICE":"Shopping - Abbigliamento","BABY SHOPPING":"Shopping - Abbigliamento","BAR":"Pasti","BAR OSCAR":"Pasti","BEAUTY & CLEAN":"Personale - Cosmetici","BEBA STORE":"Casa - Arredamento","BERNAZZOLI S.N.C.":"Varie","BERTOLINI ROSSANA":"Shopping - Abbigliamento","BETTO E MARY":"Pasti","BI & GI SNC":"Shopping - Altro","BIBA'S":"Pasti","BOLLETTINI POSTALI BOLLETTINO 896":"Tasse","BONIFICO - SEPA ISTANTANEO C.P. DE JAGER":"Varie","BONIFICO - SEPA ISTANTANEO PIETRO":"Varie","BONIFICO DA TERZE PARTI PISP IREN SPA":"Bollette - Elettricità","BONIFICO PERMANENTE A FAV. CONOSCENTI GIOACCHINO":"Banca - Mutuo","BRICOCENTER":"Casa - Manutenzione","BRICOMAN":"Shopping - Elettronica","BRIO BAZAR":"Shopping - Altro","CAFFE'":"Pasti","CALZEDONIA":"Shopping - Abbigliamento","CANEPA ROSALIA CARINI":"Automobile - Parcheggio","CANONE ANNUO ANTICIPATO POSTEPAY":"Tasse","CANONE ANNUO CONTESTUALE A VENDITA":"Tasse","CAREBO":"Automobile - Manutenzione","CARTA DI CREDITO":"Banca - Carta di credito","CASA PASCUCCI":"Divertimenti","CASEIFICIO":"Pasti","CENTRO MEDICO":"Personale - Medicinali","CHIOSCO DELLE ROSE":"Pasti","CIACCO PARMA":"Pasti","CIORE":"Pasti","CIRA MAURIZIO":"Pasti","CISALFA":"Shopping - Abbigliamento","CITTA DEL SOLE":"Shopping - Altro","CITTADELLA":"Pasti","CLAYTON":"Shopping - Abbigliamento","COIN":"Shopping - Abbigliamento","COMET SPA":"Casa - Altro","COMITATO EMILIA-ROMAGN":"Varie","COMM.EMISSIONE/RICARICA CARTA":"Banca - Commissioni","COMM.RICARICA PREPAGATA":"Banca - Commissioni","COMMISSIONE":"Banca - Commissioni","COMMISSIONE DISPOSIZIONE BONIFICO SEPA":"Banca - Commissioni","COMMISSIONE EMISSIONE":"Banca - Commissioni","COMMISSIONI":"Banca - Commissioni","COMPASS":"Bollette - Altro","COMUNE DI FOLIGNO":"Varie","CONAD":"Alimenti","CONDOMINIO":"Casa - Manutenzione","CONBIPEL":"Shopping - Abbigliamento","COOP":"Alimenti","COOP SOCIALE BADANTI E COLF":"Casa - Manutenzione","COPACABANA":"Pasti","CORDARO SRL":"Shopping - Altro","COSTANTIN SPA":"Automobile - Benzina","CRAI":"Alimenti","CRAI PARMA":"Alimenti","CRONOS BOLOGNA":"Divertimenti","DA CONOSCENTI GIOACCHINO, FORESTIERE ALESSA":"Shopping - Altro","DA FORESTIERE SANTO":"Shopping - Altro","DAFNE MIDULLA PARMA":"Personale - Medicinali","DAFNE SRL":"Automobile - Parcheggio","DAMAT":"Pasti","DEMOS VERONA":"Pasti","DISTRIBUTORE":"Automobile - Benzina","DISTRIBUTORE IP":"Automobile - Benzina","DISTRIBUTORE SELF":"Automobile - Benzina","DIVERTILANDIA":"Divertimenti","DOLOMITI":"Bollette - Elettricità","DOTT.SSA DONAT":"Personale - Medicinali","DOUGLAS":"Shopping - Altro","DRAGONE":"Pasti","DU' CAFE'":"Pasti","DUZU TOTO":"Pasti","ELEONORA ZAMPI":"Varie","EMPORIO ITALIA":"Casa - Arredamento","ENEL ENERGIA":"Bollette - Elettricità","ENERG.IT S.P.A.":"Bollette - Elettricità","ENERGY VOLLEY":"Personale - Sport","ENI":"Automobile - Benzina","ESSELUNGA":"Alimenti","ESSO":"Automobile - Benzina","EUROSPIN":"Alimenti","F.LLI FIASCONARO":"Pasti","F24":"Tasse","FARMACIA":"Personale - Medicinali","FASTPAY":"Automobile - Parcheggio","FASTWEB":"Bollette - Internet","FELTRINELLI":"Shopping - Libri","FERRAMENTA ARCO":"Casa - Altro","FINLIBRI":"Shopping - Altro","FIORI DI CAMPO":"Shopping - Altro","FIRENZE S.M.N.":"Viaggi","FLACCOVIO":"Shopping - Libri","FOOD":"Pasti","FORUM 2":"Shopping - Abbigliamento","FOTO ELITE":"Shopping - Altro","GABBAN FRANCO":"Personale - Capelli","GARDALAND":"Divertimenti","GELATERIA":"Pasti","GEST":"Viaggi","GEST SPA":"Pasti","GIACOMAZZI SRL":"Automobile - Manutenzione","GIOCHI SRL":"Shopping - Altro","GIOVANELLI AUTORIPARAZ":"Automobile - Manutenzione","GIUNTI AL PUNTO":"Shopping - Libri","GLOBO":"Shopping - Abbigliamento","GRUPPO ARGENTA":"Pasti","GRUPPO LIDIA TOGNI":"Divertimenti","GUESS ITALIA":"Shopping - Abbigliamento","GUSTAVO":"Pasti","HAIR STUDIO":"Personale - Capelli","HAMBURGER":"Pasti","HAPPY CASA":"Casa - Arredamento","HFB ECO":"Casa - Arredamento","HM":"Shopping - Abbigliamento","HOLDING DEI GIOCHI":"Shopping - Altro","HOTEL COSTA VERDE":"Viaggi","HUGO BOSS":"Shopping - Abbigliamento","I SAPORI DELL TRADIZI":"Pasti","I SOSPIRI DEL CAMPOFELICE":"Pasti","ICILIO ROSSINI":"Casa - Affitto","IDEXE'":"Shopping - Abbigliamento","IGINIO MASSAR":"Pasti","IL SOLE & LA L ROMA":"Viaggi","IL TRIBUNALE PARMA":"Pasti","IMPOSTA":"Tasse","INTERSPAR":"Alimenti","INTIMISSIMI":"Shopping - Abbigliamento","IPER CENTRO TORRI":"Alimenti","IPER EUROSIA":"Alimenti","SF8Y404000000005506098":"Bollette - Elettricità","IREN S P A":"Bollette - Acqua","IRENPAY":"Bollette - Rifiuti","IREN MERCATO":"Bollette - Elettricità","ITALIA ATM":"Varie","ITINERE SERV.RIST DUBLIN IRL":"Pasti","ITINERE SERV.RIST FREC":"Pasti","JUST EAT":"Pasti","JUSTEATITALY":"Pasti","KASANOVA":"Casa - Altro","KAYI 2 SRL":"Pasti","KIABI":"Shopping - Abbigliamento","KING TECH":"Shopping - Elettronica","LA DROGHERIA":"Pasti","LA DUCHESSA DI PARMA":"Pasti","LA MAISON DU GOURMET":"Pasti","LA RINASCENTE":"Pasti","LA TAGLIATA":"Pasti","LA TAVERNA":"Pasti","LA VELA PARMA":"Pasti","LE BUONE VOGLIE MUGGIA":"Pasti","LE CHICCHE":"Shopping - Abbigliamento","LIANG":"Pasti","LIDL":"Alimenti","LIDO AZZURRO":"Pasti","LIU JO":"Shopping - Abbigliamento","LIU.JO":"Shopping - Abbigliamento","LIS PAY PRESSO MANISC CAMPOFELICE":"Shopping - Altro","LOAN SRL":"Varie","LOVABLE CC":"Shopping - Abbigliamento","LUX EVENTI SRL ROMA":"Divertimenti","MACELLERIA LO PICCOLO":"Alimenti","MAGAZZINI REGINA":"Casa - Altro","MAGRITTE DRINK":"Pasti","MAKE UP ARTIST":"Personale - Capelli","MANGO":"Shopping - Abbigliamento","MANIFATTURA FIRENZE":"Shopping - Abbigliamento","MARA MEO":"Pasti","MARGHERITA PARMA":"Shopping - Abbigliamento","MASO":"Alimenti","MATO SRL":"Casa - Altro","MATTIAZZI S.PROSPERO":"Varie","MAVILIGIO'":"Shopping - Abbigliamento","MC DONALD":"Pasti","MEDI SALUSER":"Personale - Medicinali","MEDIAWORLD":"Shopping - Elettronica","MEDIOLANUM VITA":"Assicurazione","MERCATO CENTRALE":"Pasti","MERIDA":"Varie","MIRO'":"Personale - Medicinali","MOBY ALE":"Viaggi","MOSTO SAS":"Pasti","MUTUO":"Banca - Mutuo","NAIL LAB SRL":"Personale - Cosmetici","NAVIGARE S.R.L.":"Shopping - Abbigliamento","NEW PIZZA":"Pasti","NUNA RETAIL":"Shopping - Abbigliamento","NUOVO S ORSOLA":"Personale - Medicinali","OFFICINA AUTO SPORT":"Automobile - Manutenzione","OLD WILD WEST":"Pasti","ORANO":"Pasti","ORIGINAL MARINES":"Shopping - Abbigliamento","ORTO DI ECCHER":"Alimenti","ORTO SUL COLLE":"Divertimenti","OSPEDAL":"Personale - Medicinali","OSTERIA":"Pasti","OSTERIA CIPOLLA":"Pasti","OTTICA VISION":"Shopping - Altro","OVS":"Shopping - Abbigliamento","PAGAMENTO PAGA CON POSTEPAY":"Varie","PAGAMENTO UTENZA PAGAMENTI SU RETE":"Tasse","PAGAMENTO UTENZA TELEFONICA":"Bollette - Internet","PALAZZO MASSAINI SAS":"Pasti","PANE":"Alimenti","PANIFICIO":"Pasti","PANZEROTTERIA":"Pasti","PAOLA ECCEL":"Casa - Affitto","PARANZA":"Pasti","PARCHEGGI":"Automobile - Parcheggio","PARCHEGGIO":"Automobile - Parcheggio","PARK":"Automobile - Parcheggio","PARMA FOOD":"Pasti","PARMA PARMA":"Varie","PARMA TORRI":"Shopping - Abbigliamento","PARRUCCHIERIA GIOVANN":"Personale - Capelli","PASTICCERIA":"Pasti","PAYPAL":"Famiglia","PECOFARM DI SALVATORE":"Personale - Medicinali","PELLEGRINI":"Pasti","PENNYBLACK":"Shopping - Abbigliamento","PEPCO":"Shopping - Abbigliamento","PEPEROSA":"Shopping - Abbigliamento","PEPPERINO":"Pasti","PERSONALCAR":"Automobile - Manutenzione","PETROLI":"Automobile - Benzina","PG CAFE'":"Pasti","PIAZZA ITALIA":"Shopping - Abbigliamento","PICCOLE COCCOLE":"Personale - Cosmetici","PINALLI PROFUMERIE":"Personale - Cosmetici","PIRANHA SRL":"Pasti","PITTARELLO":"Shopping - Abbigliamento","PIZZA":"Pasti","PIZZERIA":"Pasti","PIZZIKOTTO":"Pasti","POLI":"Alimenti","PORCOBRADO":"Pasti","POSTEPAY-PAGOPA":"Varie","PRELIEVO DI CONTANTE":"Varie","PRELIEVI PAESI UE":"Varie","PRENATAL":"Shopping - Abbigliamento","PRESTO SERVICE C/O":"Casa - Altro","PRIMARK":"Shopping - Abbigliamento","PRIMIGI STORE":"Shopping - Abbigliamento","PROFILI":"Personale - Capelli","PULISYSTEM":"Casa - Altro","PUNZO ANNA":"Personale - Medicinali","PVH ITALIA SRL":"Shopping - Abbigliamento","RICARICA CARTA":"Varie","RICARICA POSTEPAY":"Varie","RICARICA TELEFONO":"Bollette - Internet","RICARICA/RIMBORSO":"Varie","RICARICA/RIMBORSO CARTA/E PREPAGATA/E":"Varie","RINASCIMENTO":"Shopping - Abbigliamento","RISPARMIO CASA":"Shopping - Altro","RIST PIZZ":"Pasti","RIST. PIZZ.":"Pasti","RISTORANTE":"Pasti","RL FASHIONS OF EUROPE":"Shopping - Altro","ROADHOUSE":"Pasti","ROSSI PROFUMI SPA":"Personale - Cosmetici","ROSSOMAGENTA":"Casa - Arredamento","RUDY ROSSI PARMA":"Personale - Medicinali","RYANAIR":"Viaggi","SALUMERIA":"Pasti","SEGIT":"Automobile - Benzina","SERVIZI E DUCATIVI":"Formazione","SESSANTA BPM":"Shopping - Libri","SFERRINO PIETRO":"Shopping - Abbigliamento","SHAKIROVSKI":"Casa - Manutenzione","SHELL":"Automobile - Benzina","SOTTOSCRIZIONE TITOLI":"Banca - Titoli","SPAKE'":"Pasti","SPESE GESTIONE":"Tasse","SPLASH DOWN":"Shopping - Abbigliamento","STAZIONE DI SERVIZIO":"Automobile - Benzina","STAZIONE":"Automobile - Benzina","STELLA' Z PARMA":"Shopping - Altro","STELLANTIS":"Automobile - Leasing","STRADA BURLA":"Shopping - Altro","STROILI ORO":"Shopping - Altro","STUDIO DOTT SS TERMINI IMERE":"Personale - Medicinali","STUDIO OTTICO":"Shopping - Altro","SUPERMERCATI":"Alimenti","SUPERMERCATO":"Alimenti","SUPERSTORE":"Alimenti","SUSHIKO":"Pasti","TABACCHERIA":"Shopping - Altro","TAM.CO. SRL":"Shopping - Altro","TAMOIL":"Automobile - Benzina","TASS SORBOLO":"Shopping - Altro","TAVERNA":"Pasti","TAVOLE SUL NAVIGLIO SR FAENZA":"Pasti","TEDI COMMERCIO":"Casa - Altro","TELEPASS":"Automobile - Parcheggio","TENJI SRLS":"Pasti","TENNISTAVOLO":"Personale - Sport","TEP SPA":"Viaggi","THE CUPS DI MICHELE CO":"Pasti","THE SPACE CINEMA":"Divertimenti","TIGOTA":"Casa - Manutenzione","TOP FOTO":"Shopping - Altro","TRASFERIMENTO DI CONTANTI MOONEY":"Shopping - Altro","TRATTORIA":"Pasti","TRAVELLER'S WORLD DUT.":"Viaggi","TRENITALIA":"Viaggi","U121":"Varie","UPIM":"Shopping - Altro","VECCHIA PERGINE":"Pasti","VERO STORE":"Casa - Altro","VICOMERO":"Alimenti","VILLA COSTANZA":"Automobile - Parcheggio","VILLA DI SAN MARTINO":"Divertimenti","VINCOLO N.":"Banca - Titoli","VOSTRA DISPOSIZIONE A FAV. ALESSANDRA FORESTIERE":"Shopping - Altro","VOSTRA DISPOSIZIONE A FAV. AMNU":"Bollette - Rifiuti","VOSTRA DISPOSIZIONE A FAV. ANNA CONOSCENTI":"Varie","VOSTRA DISPOSIZIONE A FAV. AUTOZATTI SRL BONIFICO DISPOSTO IN: INTERNET COOR.BENEF.: IT73 Y020 0805 3640 0000 2926 110 BANCA DESTINATARIA: 02008/05364-UNCRITMMORR DATA ORDINE: 30/09/24 DATA REGOLAMENTO: 01/10/24 CRO: 0000028614440703483421034210IT NOTE: PANDA FORESTIERE ALESSANDRA":"Automobile - Altro","VOSTRA DISPOSIZIONE A FAV. CITTA FUTURA":"Formazione","VOSTRA DISPOSIZIONE A FAV. CONOSCENTI GIOACCHINO":"Varie","VOSTRA DISPOSIZIONE A FAV. DA.MA.":"Casa - Arredamento","VOSTRA DISPOSIZIONE A FAV. DECALACQUE":"Bollette - Altro","VOSTRA DISPOSIZIONE A FAV. DOMENICA FORESTIERE":"Varie","VOSTRA DISPOSIZIONE A FAV. DOMENICO DIFIGOLA":"Varie","VOSTRA DISPOSIZIONE A FAV. GIUSEPPE AMATORE":"Shopping - Altro","VOSTRA DISPOSIZIONE A FAV. GIUSEPPE DILIBERTI":"Varie","VOSTRA DISPOSIZIONE A FAV. HANSAROSE":"Varie","VOSTRA DISPOSIZIONE A FAV. LIBRETTO SMART":"Varie","VOSTRA DISPOSIZIONE A FAV. LIEN VIAGGI":"Viaggi","VOSTRA DISPOSIZIONE A FAV. MARIA ILARIA BRUNETTI":"Shopping - Altro","VOSTRA DISPOSIZIONE A FAV. PATRIK BONAFEDE":"Casa - Manutenzione","VOSTRA DISPOSIZIONE A FAV. ROSSELLA CRISANTI":"Varie","VOSTRA DISPOSIZIONE A FAV. ROVENA HAJDINI":"Varie","VOSTRA DISPOSIZIONE A FAV. SARA CONOSCENTI":"Varie","VOSTRA DISPOSIZIONE A FAV. STILE REALE":"Casa - Affitto","VOSTRA DISPOSIZIONE COMUNE DI PARMA - SERVIZI EDUCATIVI":"Formazione","VOSTRA DISPOSIZIONE COMUNE DI PARMA SANZIONI":"Tasse","VOSTRA DISPOSIZIONE CORTESI CLAUDIA E LO NERO GIANLUCA":"Shopping - Altro","VOSTRA DISPOSIZIONE MATEDO S.N.C.":"Formazione","VOSTRA DISPOSIZIONE NOTAIO ENRICHETTA COMPAGNONE":"Tasse","VOSTRA DISPOSIZIONE PIETRO CONOSCENTI BONIFICO":"Shopping - Altro","VOSTRA DISPOSIZIONE WOOD&MARI":"Casa - Manutenzione","WIND-TRE":"Bollette - Internet","WWW.IKEA.COM":"Casa - Arredamento","WWW.IRENYOU.IT":"Bollette - Rifiuti","YAMAMAY":"Shopping - Abbigliamento","ZANELLATO TOMAS MORGAN":"Shopping - Altro","ZARA":"Shopping - Abbigliamento","ZUIKI":"Shopping - Abbigliamento","MCC 4111":"Viaggi","MCC 4121":"Viaggi","MCC 4131":"Viaggi","MCC 4722":"Viaggi","MCC 4789":"Viaggi","MCC 4900":"Bollette - Elettricità","MCC 5192":"Shopping - Libri","MCC 5411":"Alimenti","MCC 5441":"Pasti","MCC 5462":"Pasti","MCC 5499":"Pasti","MCC 5541":"Pasti","MCC 5542":"Automobile - Benzina","MCC 5621":"Shopping - Abbigliamento","MCC 5651":"Shopping - Abbigliamento","MCC 5691":"Shopping - Abbigliamento","MCC 5698":"Personale - Capelli","MCC 5719":"Casa - Manutenzione","MCC 5812":"Pasti","MCC 5813":"Pasti","MCC 5814":"Pasti","MCC 5912":"Shopping - Abbigliamento","MCC 5941":"Shopping - Abbigliamento","MCC 5943":"Shopping - Altro","MCC 5945":"Shopping - Altro","MCC 5946":"Shopping - Altro","MCC 5999":"Alimenti","MCC 6300":"Assicurazione","MCC 7011":"Viaggi","MCC 7210":"Casa - Altro","MCC 7221":"Shopping - Altro","MCC 7230":"Personale - Capelli","MCC 7311":"Pasti","MCC 7512":"Automobile - Manutenzione","MCC 7523":"Automobile - Parcheggio","MCC 7542":"Automobile - Manutenzione","MCC 7699":"Casa - Altro","MCC 7941":"Shopping - Abbigliamento","MCC 7966":"Viaggi","MCC 7999":"Divertimenti","MCC 8011":"Personale - Medicinali","MCC 8062":"Personale - Medicinali","MCC 8299":"Formazione","MCC 8398":"Divertimenti","MCC 9399":"Tasse","DECATHLON":"Shopping - Abbigliamento","ALFA 3000 RAVENNA":"Viaggi","BASILICA DI S.APOLLINA RAVENNA":"Viaggi","PAGOPA":"Formazione","AMAZON":"Shopping - Altro","COLOSSEUM":"Personale - Medicinali","ORSOLA":"Personale - Medicinali","BACCANALE":"Shopping - Abbigliamento","AGRITURISMO":"Pasti","CITTA? DEL SOLE":"Shopping - Altro","BOMBE'":"Pasti","ANNA PUNZO":"Personale - Medicinali","RAVENNA":"Viaggi","IRIS MOBILI":"Casa - Arredamento","BURGERMEETER":"Pasti","MIRABILANDIA":"Viaggi","AZIMUT CASSA":"Automobile - Parcheggio","GRELU":"Shopping - Abbigliamento","TERRAZZANO":"Pasti","HARNOLD' S DI FANZINI":"Shopping - Abbigliamento","AVVISO PAGOPA":"Tasse","QR PAGA CON POSTEPAY":"Varie","VINCITORE DI FATTA":"Pasti","THE SHIPPING CENTRE":"Shopping - Altro","PUB 55":"Pasti","TENTAZIONI DI GIRASIA":"Shopping - Abbigliamento","LIDO AZZUR":"Pasti","PALMAR RIST INT":"Pasti","SPESA FELICE":"Alimenti","KREION LAB":"Regali","CALLIOPE":"Shopping - Abbigliamento","CANONE CARTA ANNUALE":"Tasse","TALCO":"Shopping - Abbigliamento","WHITE":"Shopping - Abbigliamento","MEDITERRANEA GIOIELLI":"Shopping - Altro","GIOCHERIA DI D'ALIA":"Shopping - Altro","FORESTIERE":"Regali","LA VELA":"Pasti","GIADA FONTANA":"Shopping - Abbigliamento","TIZIANA BRANCATI":"Personale - Medicinali","EMILIA CREMERIA":"Pasti","CAFFE COMMERCIO":"Pasti","IDO PARMA":"Shopping - Abbigliamento","GOLDENPOINT":"Shopping - Abbigliamento","INNOVATION TIME":"Shopping - Abbigliamento","CENTRO TORRI":"Shopping - Abbigliamento","CINEMA":"Divertimenti","DAR PARUCCA":"Personale - Capelli","ROMA":"Shopping - Abbigliamento","PRIMA ASSICURAZIONI":"Assicurazione","LA GOLOSA":"Pasti","ABBIATEGRASSO":"Shopping - Abbigliamento","BO6027":"Shopping - Abbigliamento","P2P A RE   GIUSEPPINA RITA":"Regali","NOR":"Shopping - Abbigliamento","PITTAROSSO":"Shopping - Abbigliamento"};
+
+function autoCateg(desc, importo) {
+  if (!desc) return importo >= 0 ? 'Altro' : 'Varie';
+  const upper = desc.toUpperCase().trim();
+
+  // 1) Match esatto
+  if (CSV_RULES[upper]) return CSV_RULES[upper];
+
+  // 2) Match parziale: cerca se la desc contiene una keyword (ordine da più lunga a più corta)
+  const keys = Object.keys(CSV_RULES).sort((a,b) => b.length - a.length);
+  for (const kw of keys) {
+    if (upper.includes(kw)) return CSV_RULES[kw];
+  }
+
+  // 3) Fallback in base al segno dell'importo
+  return importo >= 0 ? 'Altro' : 'Varie';
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  GOOGLE SHEETS STORAGE LAYER
+//  Sostituisce localStorage — dati persistenti e multi-device
+// ═══════════════════════════════════════════════════════════════
+let GS_URL = localStorage.getItem('bp_gs_url') || '';
+
+// Carica GS_URL dal localStorage (unica cosa che salviamo lì)
+function loadGsUrl() {
+  GS_URL = localStorage.getItem('bp_gs_url') || '';
+  const inp = document.getElementById('gsUrl');
+  if (inp && GS_URL) inp.value = GS_URL;
+}
+
+function saveGsUrl() {
+  GS_URL = (document.getElementById('gsUrl')?.value || '').trim().replace(/\/+$/,'');
+  localStorage.setItem('bp_gs_url', GS_URL);
+}
+
+// ── GET ───────────────────────────────────────────────────────
+async function gsGet(action) {
+  if (!GS_URL) throw new Error('URL Google Sheets non configurato');
+  const res = await fetch(`${GS_URL}?action=${action}`);
+  if (!res.ok) throw new Error(`GS HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── POST ──────────────────────────────────────────────────────
+async function gsPost(body) {
+  if (!GS_URL) throw new Error('URL Google Sheets non configurato');
+  const res = await fetch(GS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },  // evita preflight CORS
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error(`GS HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── CARICAMENTO INIZIALE ──────────────────────────────────────
+async function gsLoad() {
+  if (!GS_URL) {
+    stamp('GS non configurato'); dot('off');
+    hide('loading'); show('app');
+    return;
+  }
+  try {
+    stamp('Connessione GS…'); dot('off');
+
+    // Carica in parallelo transazioni + sessioni + config + log
+    const [txData, sessData, cfgData, logData] = await Promise.all([
+      gsGet('read'), gsGet('sessions'), gsGet('config'), gsGet('log')
+    ]);
+
+    // Transazioni: separo per fonte
+    const rows = txData.rows || [];
+    apiTx = rows.filter(r => r['Fonte'] === 'mediolanum' || r['Fonte'] === 'postepay');
+    csvTx = rows.filter(r => !['mediolanum','postepay','json'].includes(r['Fonte']));
+
+    // Normalizza: rimappa nomi colonne GS → formato interno
+    apiTx = apiTx.map(gsRowToInternal);
+    csvTx = csvTx.map(gsRowToInternal);
+
+    // Sessioni
+    activeSessions = (sessData.sessions || []).map(s => ({
+      bankId:    s.bankId,
+      sessionId: s.sessionId,
+      accounts:  Array.isArray(s.accounts) ? s.accounts : (s.accounts ? JSON.parse(s.accounts) : []),
+      lastSync:  s.lastSync
+    }));
+
+    // Worker URL dalla config GS
+    const cfg = cfgData.config || {};
+    if (cfg.workerUrl) {
+      workerUrl = cfg.workerUrl;
+      const inp = document.getElementById('workerUrl');
+      if (inp) inp.value = workerUrl;
+    }
+
+    // Log
+    syncLog = (logData.entries || []).map(e => ({ time: e.time, msg: e.msg }));
+
+    dot('green'); stamp(`GS sync OK · ${rows.length} tx`);
+  } catch(e) {
+    dot('red'); stamp('GS errore: ' + e.message);
+    toast('Errore GS: ' + e.message, 'ko');
+  } finally {
+    hide('loading'); show('app');
+  }
+}
+
+// Rimappa riga GS (intestazioni italiane) → oggetto interno JS
+function gsRowToInternal(r) {
+  const data = r['Data Operazione'] || '';
+  const imp  = parseFloat(String(r['Importo'] || '0').replace(',','.')) || 0;
+  const tipoRaw = (r['Tipo importo'] || '').toLowerCase();
+  const tipo = tipoRaw === 'income' ? 'entrata' : tipoRaw === 'expense' ? 'uscita' : (imp >= 0 ? 'entrata' : 'uscita');
+  return {
+    data:        data,
+    dataStr:     r['Data Operazione'] || '',
+    descrizione: r['Descrizione'] || '',
+    tipologia:   r['Tipologia'] || '',
+    importo:     imp,
+    tipo,
+    conto:       r['Conto'] || '',
+    acquirente:  r['Acquirente'] || '',
+    budget:      r['Budget'] || '',
+    source:      r['Fonte'] || 'csv'
+  };
+}
+
+// ── SALVATAGGIO TRANSAZIONI ───────────────────────────────────
+async function gsSaveTransactions(newRows) {
+  if (!GS_URL || !newRows.length) return;
+  try {
+    // Converte in formato GS (intestazioni italiane)
+    const gsRows = newRows.map(r => ({
+      'Data Operazione': r.dataStr || r.data || '',
+      'Descrizione':     r.descrizione || '',
+      'Importo':         r.importo,
+      'Tipologia':       r.tipologia || '',
+      'Conto':           r.conto || '',
+      'Acquirente':      r.acquirente || '',
+      'Tipo importo':    r.tipo === 'entrata' ? 'Income' : 'Expense',
+      'Budget':          r.budget || '',
+      'Fonte':           r.source || 'csv'
+    }));
+    const res = await gsPost({ action: 'write', rows: gsRows });
+    return res;
+  } catch(e) {
+    toast('Errore salvataggio GS: ' + e.message, 'ko');
+  }
+}
+
+// ── SALVATAGGIO SESSIONE ──────────────────────────────────────
+async function gsSaveSession(sess) {
+  if (!GS_URL) return;
+  try {
+    await gsPost({ action: 'saveSession', session: sess });
+  } catch(e) {
+    toast('Errore sessione GS: ' + e.message, 'ko');
+  }
+}
+
+async function gsDeleteSession(bankId) {
+  if (!GS_URL) return;
+  try {
+    await gsPost({ action: 'deleteSession', bankId });
+  } catch(e) {
+    console.warn('GS deleteSession:', e.message);
+  }
+}
+
+// ── SALVATAGGIO CONFIG ────────────────────────────────────────
+async function gsSaveConfig(key, value) {
+  if (!GS_URL) return;
+  try {
+    await gsPost({ action: 'saveConfig', key, value });
+  } catch(e) {
+    console.warn('GS saveConfig:', e.message);
+  }
+}
+
+// ── LOG ───────────────────────────────────────────────────────
+async function gsAddLog(message) {
+  if (!GS_URL) return;
+  try {
+    await gsPost({ action: 'addLog', message });
+  } catch(e) {
+    console.warn('GS addLog:', e.message);
+  }
+}
+
+async function gsClearLog() {
+  if (!GS_URL) return;
+  try {
+    await gsPost({ action: 'clearLog' });
+  } catch(e) {
+    console.warn('GS clearLog:', e.message);
+  }
+}
+
+// ── SYNC MANUALE ─────────────────────────────────────────────
+async function gsSync() {
+  toast('↻ Sincronizzazione con Google Sheets…', 'info');
+  // Ricarichiamo tutto da zero
+  mergeAll(allTx.filter(r => r.source === 'json'));
+  await gsLoad();
+  mergeAndRefresh();
+  renderSrcSummary();
+  if (curSec === 'banche') renderBanks();
+  toast('✓ Sync completato', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  NAVIGAZIONE
+// ═══════════════════════════════════════════════════════════════
+function go(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  btn.classList.add('active');
+  curSec = id;
+  document.getElementById('ptitle').textContent = TITLES[id];
+  const hideTop = HIDE_TOPBAR.has(id);
+  document.getElementById('period-bar').style.display   = hideTop ? 'none' : '';
+  document.getElementById('global-filters').style.display = hideTop ? 'none' : '';
+  if (id === 'banche')   renderBanks();
+  else if (id === 'importa') renderSrcSummary();
+  else runSection();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CARICAMENTO data.json (fonte storica)
+// ═══════════════════════════════════════════════════════════════
+async function loadData() {
+  try {
+    const res = await fetch(DATA_FILE + '?t=' + Date.now());
+    if (!res.ok) throw new Error('data.json non trovato');
+    const lm = res.headers.get('last-modified');
+    if (lm === lastMod && allTx.length) return;
+    lastMod = lm;
+    const raw = await res.json();
+    const rows = raw.transazioni || (Array.isArray(raw) ? raw : []);
+    const jsonTx = rows.map(r => normalizeRow(r, 'json')).filter(r => r.data);
+    allInv = raw.investimenti || [];
+    mergeAll(jsonTx);
+    fillDrops();
+    applyFilters();
+    renderInv();
+    dot('green'); stamp('data.json ✓');
+    hide('loading'); show('app');
+  } catch (e) {
+    // Nessun data.json → lavoriamo solo con API/CSV
+    mergeAll([]);
+    fillDrops();
+    applyFilters();
+    dot('off'); stamp('Nessun data.json');
+    hide('loading'); show('app');
+  }
+}
+
+function normalizeRow(r, src) {
+  let d = parseD(r.data);
+  let imp = parseFloat(String(r.importo || 0).replace(',', '.').replace(/[^0-9.\-]/g, '')) || 0;
+  
+  // Tipo importo: da colonna "Tipo importo" (Income/Expense/entrata/uscita) o dal segno
+  let tipo = (r.tipo || r['tipo importo'] || r['Tipo importo'] || '').toLowerCase().trim();
+  if (tipo === 'income') tipo = 'entrata';
+  if (tipo === 'expense') tipo = 'uscita';
+  if (!tipo) tipo = imp >= 0 ? 'entrata' : 'uscita';
+  if (tipo === 'uscita' && imp > 0)  imp = -imp;
+  if (tipo === 'entrata' && imp < 0) imp = Math.abs(imp);
+
+  // Acquirente: da CSV o da fonte
+  const acquirente = r.acquirente || r['Acquirente'] || ACQUIRENTE_MAP[src] || '';
+
+  // Tipologia: da CSV se presente, altrimenti auto-detect
+  const tipologia = (r.tipologia || r['Tipologia'] || '').trim() || autoCateg(r.descrizione || '', imp);
+
+  return {
+    data: d, dataStr: fmtD(d),
+    descrizione: r.descrizione || r['Descrizione'] || '',
+    tipologia,
+    importo: imp, tipo,
+    conto: r.conto || r['Conto'] || '',
+    acquirente,
+    budget: getBudget(tipologia, r.budget || r['Budget'] || ''),
+    source: src || 'json'
+  };
+}
+
+function mergeAll(jsonRows) {
+  // Dedup basato su data+importo+descrizione
+  const seen = new Set();
+  const dedup = (rows) => rows.filter(r => {
+    const k = `${r.dataStr}|${r.importo}|${r.descrizione}`;
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+  allTx = [
+    ...dedup(jsonRows),
+    ...dedup(apiTx.map(r => ({ ...r, data: parseD(r.data || r.dataStr), dataStr: fmtD(parseD(r.data || r.dataStr)) }))),
+    ...dedup(csvTx.map(r => ({ ...r, data: parseD(r.data || r.dataStr), dataStr: fmtD(parseD(r.data || r.dataStr)) })))
+  ].filter(r => r.data);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UTILITY DATE / FORMAT
+// ═══════════════════════════════════════════════════════════════
+function parseD(s) {
+  if (!s) return null; s = String(s).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  if (/^\d{5}$/.test(s)) return new Date((+s - 25569) * 86400000);
+  return null;
+}
+function fmtD(d) { return d ? d.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit', year:'numeric'}) : '—'; }
+function isoD(d) { return d instanceof Date ? d.toISOString().split('T')[0] : String(d).split('T')[0]; }
+function eur(n) { return new Intl.NumberFormat('it-IT', {style:'currency', currency:'EUR', minimumFractionDigits:2}).format(n); }
+function nDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return isoD(d); }
+
+// ═══════════════════════════════════════════════════════════════
+//  DROPDOWNS
+// ═══════════════════════════════════════════════════════════════
+function fillDrops() {
+  const yrs = [...new Set(allTx.map(r => r.data.getFullYear()))].sort();
+  const ys = document.getElementById('yr-sel'), cv = ys.value;
+  ys.innerHTML = '<option value="">Anno…</option>';
+  yrs.forEach(y => { const o = new Option(y, y); if (String(y) === cv) o.selected = true; ys.add(o); });
+
+  const mos = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const ms = document.getElementById('mo-sel'), cm = ms.value;
+  ms.innerHTML = '<option value="">Mese…</option>';
+  mos.forEach((m, i) => { const o = new Option(m, i+1); if (String(i+1) === cm) o.selected = true; ms.add(o); });
+
+  const cats = [...new Set(allTx.map(r => r.tipologia))].sort();
+  const cf = document.getElementById('cat-f'), ccf = cf.value;
+  cf.innerHTML = '<option value="">Tutte le tipologie</option>';
+  cats.forEach(c => { const o = new Option(c, c); if (c === ccf) o.selected = true; cf.add(o); });
+
+  const conti = [...new Set(allTx.map(r => r.conto).filter(Boolean))].sort();
+  const cof = document.getElementById('cnt-f'), ccof = cof.value;
+  cof.innerHTML = '<option value="">Tutti i conti</option>';
+  conti.forEach(c => { const o = new Option(c, c); if (c === ccof) o.selected = true; cof.add(o); });
+
+  const gcof = document.getElementById('g-cnt-sel'), gcv = gcof.value;
+  gcof.innerHTML = '<option value="">Conto…</option>';
+  conti.forEach(c => { const o = new Option(c, c); if (c === gcv) o.selected = true; gcof.add(o); });
+
+  const acq = [...new Set(allTx.map(r => r.acquirente).filter(Boolean))].sort();
+  const gacf = document.getElementById('g-acq-sel'), gav = gacf.value;
+  gacf.innerHTML = '<option value="">Acquirente…</option>';
+  acq.forEach(a => { const o = new Option(a, a); if (a === gav) o.selected = true; gacf.add(o); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FILTRI
+// ═══════════════════════════════════════════════════════════════
+function setGlobal(key, val) {
+  if (key === 'contoG') contoG = val;
+  else if (key === 'acquirenteG') acquirenteG = val;
+  else if (key === 'sourceG') sourceG = val;
+  applyFilters();
+}
+function setPeriod(btn, p) {
+  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); period = p; yearF = ''; monthF = '';
+  document.getElementById('yr-sel').value = ''; document.getElementById('mo-sel').value = '';
+  applyFilters();
+}
+function setYear(y) { yearF = y; period = ''; document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active')); applyFilters(); }
+function setMonth(m) { monthF = m; applyFilters(); }
+
+function applyFilters() {
+  const now = new Date();
+  const tipo = document.getElementById('tipo-f')?.value || '';
+  const cat  = document.getElementById('cat-f')?.value  || '';
+  const cnt  = document.getElementById('cnt-f')?.value  || '';
+  const src  = document.getElementById('src-f')?.value  || '';
+  const q    = (document.getElementById('tx-q')?.value  || '').toLowerCase();
+
+  filteredTx = allTx.filter(r => {
+    const d = r.data;
+    if (period === 'thismonth' && (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth())) return false;
+    if (period === 'lastmonth') { const lm = new Date(now.getFullYear(), now.getMonth()-1, 1); if (d.getFullYear() !== lm.getFullYear() || d.getMonth() !== lm.getMonth()) return false; }
+    if (period === 'thisyear' && d.getFullYear() !== now.getFullYear()) return false;
+    if (yearF  && d.getFullYear() !== parseInt(yearF)) return false;
+    if (monthF && d.getMonth()+1 !== parseInt(monthF)) return false;
+    if (contoG && r.conto !== contoG) return false;
+    if (acquirenteG && r.acquirente !== acquirenteG) return false;
+    if (sourceG && r.source !== sourceG) return false;
+    if (tipo && r.tipo !== tipo) return false;
+    if (cat  && r.tipologia !== cat) return false;
+    if (cnt  && r.conto !== cnt) return false;
+    if (src  && r.source !== src) return false;
+    if (q && ![r.descrizione, r.tipologia, r.dataStr, r.conto, r.acquirente, r.budget, r.source].some(v => v.toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  filteredTx.sort((a, b) => {
+    let av = a[sortField], bv = b[sortField];
+    if (av instanceof Date) av = av.getTime(); if (bv instanceof Date) bv = bv.getTime();
+    if (typeof av === 'string') av = av.toLowerCase(); if (typeof bv === 'string') bv = bv.toLowerCase();
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
+  });
+  curPage = 1;
+  runSection();
+}
+function sortBy(f) { if (sortField === f) sortDir *= -1; else { sortField = f; sortDir = -1; } applyFilters(); }
+function runSection() {
+  if (curSec === 'overview')     renderOverview();
+  else if (curSec === 'flussi')       renderFlussi();
+  else if (curSec === 'categorie')    renderCategorie();
+  else if (curSec === 'transazioni')  renderTx();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CHART HELPERS
+// ═══════════════════════════════════════════════════════════════
+function mbuckets(data) {
+  const m = {};
+  data.forEach(r => {
+    const k = `${r.data.getFullYear()}-${String(r.data.getMonth()+1).padStart(2,'0')}`;
+    if (!m[k]) m[k] = {inc:0, exp:0};
+    if (r.tipo === 'entrata') m[k].inc += r.importo; else m[k].exp += Math.abs(r.importo);
+  });
+  return m;
+}
+function pal(n) { const b = ['#5b6af5','#00c896','#f0485a','#f5b731','#a78bfa','#fb923c','#38bdf8','#34d399','#f472b6','#94a3b8','#818cf8','#4ade80']; return Array.from({length:n}, (_,i) => b[i%b.length]); }
+const AX = {x:{ticks:{color:'#565870',font:{size:9,family:'Space Mono'}},grid:{color:'rgba(31,32,53,.8)'}},y:{ticks:{color:'#565870',font:{size:9,family:'Space Mono'},callback:v=>'€'+v.toLocaleString('it-IT')},grid:{color:'rgba(31,32,53,.8)'}}};
+const LEG = {labels:{color:'#8589a8',font:{family:'Space Mono',size:10},boxWidth:9}};
+function mk(id, type, data, opts={}) {
+  if (CH[id]) { CH[id].destroy(); }
+  const c = document.getElementById(id); if (!c) return;
+  CH[id] = new Chart(c, {type, data, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LEG,tooltip:{callbacks:{label:ctx=>{if(typeof ctx.raw==='number')return ` ${ctx.dataset?.label||ctx.label}: ${eur(ctx.raw)}`;return ` ${ctx.dataset?.label||ctx.label}: ${ctx.raw}`;}}}},...opts}});
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  OVERVIEW
+// ═══════════════════════════════════════════════════════════════
+function renderOverview() {
+  const inc = filteredTx.filter(r => r.tipo === 'entrata');
+  const exp = filteredTx.filter(r => r.tipo === 'uscita');
+  const tInc = inc.reduce((s,r) => s+r.importo, 0);
+  const tExp = exp.reduce((s,r) => s+Math.abs(r.importo), 0);
+  const bal = tInc - tExp;
+  const sav = tInc > 0 ? (bal/tInc*100) : 0;
+  const mb = mbuckets(filteredTx);
+  const nm = Object.keys(mb).length || 1;
+
+  sv('k-inc', eur(tInc), 'cg'); sv('k-exp', eur(tExp), 'cr');
+  st('k-inc-n', inc.length+' transazioni'); st('k-exp-n', exp.length+' transazioni');
+  sv('k-bal', eur(bal), bal>=0?'cg':'cr'); st('k-bal-s', bal>=0?'positivo ✓':'negativo ✗');
+  sv('k-sav', sav.toFixed(1)+'%', sav>=20?'cg':sav>=0?'ca':'cr');
+  sv('k-avg', eur(tExp/nm), 'ct'); st('k-avg-s', nm+' mesi nel periodo');
+
+  const sM = Object.keys(mb).sort().slice(-18);
+  const mL = sM.map(k => { const[y,m]=k.split('-'); return new Date(+y,+m-1).toLocaleDateString('it-IT',{month:'short',year:'2-digit'}); });
+  mk('ch-bar','bar',{labels:mL,datasets:[
+    {label:'Entrate',data:sM.map(k=>mb[k].inc),backgroundColor:'rgba(0,200,150,.75)',borderRadius:5,borderSkipped:false},
+    {label:'Uscite', data:sM.map(k=>mb[k].exp),backgroundColor:'rgba(240,72,90,.75)', borderRadius:5,borderSkipped:false}
+  ]},{scales:AX});
+
+  const s2 = [...filteredTx].sort((a,b) => a.data-b.data);
+  let cum=0; const lL=[], lV=[];
+  s2.forEach(r => { cum+=r.importo; lL.push(r.dataStr); lV.push(+cum.toFixed(2)); });
+  mk('ch-line','line',{labels:lL,datasets:[{label:'Saldo',data:lV,borderColor:'#5b6af5',backgroundColor:'rgba(91,106,245,.07)',borderWidth:2,pointRadius:lV.length<80?2:0,tension:.3,fill:true}]},{scales:AX});
+
+  const catM={};
+  filteredTx.filter(r=>r.tipo==='uscita').forEach(r=>{catM[r.tipologia]=(catM[r.tipologia]||0)+Math.abs(r.importo);});
+  const cSorted=Object.entries(catM).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  mk('ch-donut','doughnut',{labels:cSorted.map(c=>c[0]),datasets:[{data:cSorted.map(c=>c[1]),backgroundColor:pal(cSorted.length),borderColor:'#0e0f1a',borderWidth:3,hoverOffset:8}]},{cutout:'62%'});
+
+  const top8=cSorted.slice(0,8), mx=top8[0]?.[1]||1;
+  document.getElementById('cat-bars').innerHTML=top8.map(([cat,val])=>`<div class="pr-row"><div class="pr-lbl">${cat}</div><div class="pr-bg"><div class="pr-fill" style="width:${(val/mx*100).toFixed(1)}%"></div></div><div class="pr-val">${eur(val)}</div></div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FLUSSI
+// ═══════════════════════════════════════════════════════════════
+function renderFlussi() {
+  const mb=mbuckets(filteredTx);
+  const keys=Object.keys(mb).sort().slice(-24);
+  const lbl=keys.map(k=>{const[y,m]=k.split('-');return new Date(+y,+m-1).toLocaleDateString('it-IT',{month:'short',year:'2-digit'});});
+
+  mk('ch-bar2','bar',{labels:lbl,datasets:[
+    {label:'Entrate',data:keys.map(k=>mb[k].inc),backgroundColor:'rgba(0,200,150,.75)',borderRadius:5,borderSkipped:false},
+    {label:'Uscite', data:keys.map(k=>mb[k].exp),backgroundColor:'rgba(240,72,90,.75)', borderRadius:5,borderSkipped:false}
+  ]},{scales:AX});
+
+  mk('ch-net','bar',{labels:lbl,datasets:[{label:'Saldo netto',data:keys.map(k=>+(mb[k].inc-mb[k].exp).toFixed(2)),backgroundColor:keys.map(k=>mb[k].inc>=mb[k].exp?'rgba(0,200,150,.7)':'rgba(240,72,90,.7)'),borderRadius:5,borderSkipped:false}]},{scales:AX});
+
+  const s2=[...filteredTx].sort((a,b)=>a.data-b.data);
+  let cum=0;const lL=[],lV=[];
+  s2.forEach(r=>{cum+=r.importo;lL.push(r.dataStr);lV.push(+cum.toFixed(2));});
+  mk('ch-line2','line',{labels:lL,datasets:[{label:'Cumulativo',data:lV,borderColor:'#5b6af5',backgroundColor:'rgba(91,106,245,.07)',borderWidth:2,pointRadius:lV.length<80?2:0,tension:.3,fill:true}]},{scales:AX});
+
+  const conti=[...new Set(filteredTx.map(r=>r.conto).filter(Boolean))];
+  const cI={},cE={};
+  filteredTx.forEach(r=>{if(!r.conto)return;if(r.tipo==='entrata')cI[r.conto]=(cI[r.conto]||0)+r.importo;else cE[r.conto]=(cE[r.conto]||0)+Math.abs(r.importo);});
+  mk('ch-conto','bar',{labels:conti,datasets:[
+    {label:'Entrate',data:conti.map(c=>cI[c]||0),backgroundColor:'rgba(0,200,150,.75)',borderRadius:5,borderSkipped:false},
+    {label:'Uscite', data:conti.map(c=>cE[c]||0),backgroundColor:'rgba(240,72,90,.75)', borderRadius:5,borderSkipped:false}
+  ]},{scales:AX,indexAxis:'y'});
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CATEGORIE
+// ═══════════════════════════════════════════════════════════════
+function renderCategorie() {
+  const catM={};
+  filteredTx.filter(r=>r.tipo==='uscita').forEach(r=>{catM[r.tipologia]=(catM[r.tipologia]||0)+Math.abs(r.importo);});
+  const sorted=Object.entries(catM).sort((a,b)=>b[1]-a[1]);
+  const total=sorted.reduce((s,[,v])=>s+v,0);
+
+  mk('ch-cat-bar','bar',{labels:sorted.map(c=>c[0]),datasets:[{label:'Uscite',data:sorted.map(c=>c[1]),backgroundColor:pal(sorted.length),borderRadius:5,borderSkipped:false}]},{scales:AX,indexAxis:'y',plugins:{legend:{display:false}}});
+  mk('ch-cat-pie','doughnut',{labels:sorted.map(c=>c[0]),datasets:[{data:sorted.map(c=>c[1]),backgroundColor:pal(sorted.length),borderColor:'#0e0f1a',borderWidth:3,hoverOffset:8}]},{cutout:'55%'});
+
+  const pp=pal(sorted.length);
+  document.getElementById('cat-detail').innerHTML=`<table>
+    <thead><tr><th>CATEGORIA</th><th style="text-align:right">TOTALE</th><th style="text-align:right">%</th><th style="text-align:right">TRANSAZIONI</th><th style="text-align:right">MEDIA</th></tr></thead>
+    <tbody>${sorted.map(([cat,val],i)=>{
+      const cnt=filteredTx.filter(r=>r.tipo==='uscita'&&r.tipologia===cat).length;
+      return`<tr><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${pp[i]};margin-right:8px"></span>${cat}</td><td style="text-align:right" class="ao">${eur(val)}</td><td style="text-align:right;color:var(--muted2)">${(val/total*100).toFixed(1)}%</td><td style="text-align:right;color:var(--muted2)">${cnt}</td><td style="text-align:right;color:var(--muted2)">${cnt?eur(val/cnt):'—'}</td></tr>`;
+    }).join('')}</tbody></table>`;
+
+  const budgetM={};
+  filteredTx.filter(r=>r.tipo==='uscita'&&r.budget).forEach(r=>{budgetM[r.budget]=(budgetM[r.budget]||0)+Math.abs(r.importo);});
+  const budSorted=Object.entries(budgetM).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('budget-detail').innerHTML=budSorted.length?`<table>
+    <thead><tr><th>BUDGET</th><th style="text-align:right">SPESO</th><th style="text-align:right">TRANSAZIONI</th></tr></thead>
+    <tbody>${budSorted.map(([bud,val])=>{
+      const cnt=filteredTx.filter(r=>r.budget===bud&&r.tipo==='uscita').length;
+      return`<tr><td>${bud}</td><td style="text-align:right" class="ao">${eur(val)}</td><td style="text-align:right;color:var(--muted2)">${cnt}</td></tr>`;
+    }).join('')}</tbody></table>`
+    :'<p style="color:var(--muted);font-size:11px;padding:12px 0">Nessun dato budget nel periodo.</p>';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TRANSAZIONI TABLE
+// ═══════════════════════════════════════════════════════════════
+const SRC_LABELS = {json:'data.json', csv:'CSV', mediolanum:'🏦 Mediolanum', postepay:'📮 Postepay', bancoposta:'📮 BancoPoste'};
+
+function renderTx() {
+  const start = (curPage-1)*PAGE;
+  const rows  = filteredTx.slice(start, start+PAGE);
+  const tb = document.getElementById('tx-body');
+  tb.innerHTML = '';
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:36px">Nessuna transazione trovata</td></tr>`;
+  } else {
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const srcCls = 'src-'+(r.source||'json');
+      const contoVal = r.conto ? `<span class="badge">${r.conto}</span>` : '—';
+      const acquVal = r.acquirente || '—';
+      tr.innerHTML = `<td>${r.dataStr}</td><td title="${r.descrizione}">${r.descrizione}</td><td><span class="badge">${r.tipologia}</span></td><td>${contoVal}</td><td>${acquVal} <span class="src-tag ${srcCls}" style="margin-left:4px">${SRC_LABELS[r.source]||r.source||'—'}</span></td><td style="color:var(--muted2)">${r.budget||'—'}</td><td style="text-transform:capitalize;color:${r.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${r.tipo}</td><td style="text-align:right"><span class="${r.tipo==='entrata'?'ai':'ao'}">${r.tipo==='entrata'?'+':'−'} ${eur(Math.abs(r.importo))}</span></td>`;
+      tb.appendChild(tr);
+    });
+  }
+  renderPag();
+  st('tx-info', filteredTx.length+' transazioni totali');
+}
+
+function renderPag() {
+  const tot = Math.ceil(filteredTx.length/PAGE);
+  const pag = document.getElementById('tx-pag'); if (!pag) return; pag.innerHTML = '';
+  if (tot <= 1) return;
+  const add = (l,p,on=false,dis=false) => { const b=document.createElement('button'); b.className='pg'+(on?' on':''); b.textContent=l; b.disabled=dis; if(!dis)b.onclick=()=>{curPage=p;renderTx();}; pag.appendChild(b); };
+  add('‹', curPage-1, false, curPage===1);
+  const s=Math.max(1,curPage-2), e=Math.min(tot,curPage+2);
+  if (s>1){add(1,1);if(s>2)add('…',curPage,false,true);}
+  for (let i=s;i<=e;i++) add(i,i,i===curPage);
+  if (e<tot){if(e<tot-1)add('…',curPage,false,true);add(tot,tot);}
+  add('›', curPage+1, false, curPage===tot);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INVESTIMENTI
+// ═══════════════════════════════════════════════════════════════
+function renderInv() {
+  if (!allInv.length) { document.getElementById('inv-kpi').innerHTML='<p style="color:var(--muted);font-size:12px;padding:8px 0">Nessun dato nel foglio "Investimenti".</p>'; return; }
+  const cols=Object.keys(allInv[0]||{});
+  const numCols=cols.filter(c=>allInv.some(r=>typeof r[c]==='number'));
+  document.getElementById('inv-head').innerHTML=cols.map(c=>`<th>${c.toUpperCase()}</th>`).join('');
+  document.getElementById('inv-body').innerHTML=allInv.map(r=>`<tr>${cols.map(c=>{const v=r[c];return typeof v==='number'?`<td style="text-align:right">${eur(v)}</td>`:`<td>${v??'—'}</td>`;}).join('')}</tr>`).join('');
+  st('inv-cnt', allInv.length+' posizioni');
+  const labelCol=cols.find(c=>typeof allInv[0][c]==='string')||cols[0];
+  const valCol=numCols[numCols.length-1];
+  const typeCol=cols.find(c=>['tipo','classe','strumento','categoria','asset'].some(k=>c.toLowerCase().includes(k)));
+  if (valCol) {
+    const entries=allInv.filter(r=>r[valCol]>0);
+    const top10=[...entries].sort((a,b)=>b[valCol]-a[valCol]).slice(0,10);
+    mk('ch-inv-bar','bar',{labels:top10.map(r=>String(r[labelCol]||'').slice(0,20)),datasets:[{label:'Valore',data:top10.map(r=>r[valCol]),backgroundColor:pal(top10.length),borderRadius:5,borderSkipped:false}]},{scales:AX,plugins:{legend:{display:false}},indexAxis:'y'});
+    if (typeCol) {
+      const tM={};
+      entries.forEach(r=>{const t=String(r[typeCol]||'Altro');tM[t]=(tM[t]||0)+r[valCol];});
+      const ts=Object.entries(tM).sort((a,b)=>b[1]-a[1]);
+      mk('ch-inv-pie','doughnut',{labels:ts.map(t=>t[0]),datasets:[{data:ts.map(t=>t[1]),backgroundColor:pal(ts.length),borderColor:'#0e0f1a',borderWidth:3,hoverOffset:8}]},{cutout:'58%'});
+      const tot=ts.reduce((s,[,v])=>s+v,0);
+      document.getElementById('inv-kpi').innerHTML=`<div class="kpi"><div class="kpi-top"><div class="kpi-lbl">Valore totale</div><div class="kpi-ico">◆</div></div><div class="kpi-val cgo">${eur(tot)}</div><div class="kpi-sub">${entries.length} posizioni</div></div>${ts.slice(0,4).map(([t,v])=>`<div class="kpi"><div class="kpi-top"><div class="kpi-lbl">${t}</div></div><div class="kpi-val ca">${eur(v)}</div><div class="kpi-sub">${(v/tot*100).toFixed(1)}% del portafoglio</div></div>`).join('')}`;
+    } else {
+      const tot=entries.reduce((s,r)=>s+r[valCol],0);
+      document.getElementById('inv-kpi').innerHTML=`<div class="kpi"><div class="kpi-top"><div class="kpi-lbl">Valore totale</div><div class="kpi-ico">◆</div></div><div class="kpi-val cgo">${eur(tot)}</div><div class="kpi-sub">${entries.length} posizioni</div></div>`;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ENABLE BANKING — CONNESSIONI BANCARIE
+// ═══════════════════════════════════════════════════════════════
+const BANKS = {
+  mediolanum: { name: 'Banca Mediolanum', flag: '🏦', note: 'Conto corrente · PSD2 redirect · SCA app Mediolanum' },
+  postepay:   { name: 'Postepay',          flag: '📮', note: 'Conto Postepay · SCA via PosteID' },
+};
+
+function saveWorkerUrl() {
+  workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+  gsSaveConfig('workerUrl', workerUrl);  // salva su GS
+}
+
+async function testWorker() {
+  if (!workerUrl) { toast('Inserisci prima l\'URL del Worker', 'ko'); return; }
+  try {
+    const r = await fetch(workerUrl + '/banks');
+    if (r.ok) toast('✓ Worker raggiungibile', 'ok');
+    else throw new Error('HTTP ' + r.status);
+  } catch(e) { toast('Worker non raggiungibile: '+e.message, 'ko'); }
+}
+
+async function testGs() {
+  if (!GS_URL) { toast('Inserisci prima l\'URL di Google Sheets', 'ko'); return; }
+  try {
+    const data = await gsGet('ping');
+    if (data.ok) toast('✓ Google Sheets raggiungibile · ' + data.ts, 'ok');
+    else throw new Error(data.error || 'Risposta inattesa');
+  } catch(e) { toast('GS non raggiungibile: ' + e.message, 'ko'); }
+}
+
+function renderBanks() {
+  const grid = document.getElementById('bank-grid');
+  grid.innerHTML = Object.entries(BANKS).map(([id, b]) => {
+    const sess = activeSessions.find(s => s.bankId === id);
+    const connected = !!sess;
+    return `
+    <div class="bank-card ${connected?'connected':''}">
+      <div class="bank-head">
+        <div class="bank-name">${b.flag} ${b.name}</div>
+        ${connected
+          ? `<span class="sync-badge">● CONNESSO</span>`
+          : `<span class="sync-badge warn">○ NON CONNESSO</span>`}
+      </div>
+      <div class="bank-meta">${b.note}</div>
+      ${connected ? `
+        <div class="bank-meta" style="color:var(--acc2)">
+          ${sess.accounts?.length||0} conto/i · sessione attiva<br>
+          Ultimo sync: ${sess.lastSync || 'mai'}
+        </div>
+        <div class="bank-actions">
+          <button class="btn sm" onclick="syncBank('${id}')" id="btn-sync-${id}">↻ Sincronizza</button>
+          <button class="btn ghost sm" onclick="disconnectBank('${id}')">✕ Disconnetti</button>
+        </div>` : `
+        <div class="bank-actions">
+          <button class="btn sm" onclick="connectBank('${id}')">+ Connetti</button>
+        </div>`}
+    </div>`;
+  }).join('');
+
+  // Ripristina log
+  const logEl = document.getElementById('sync-log');
+  if (syncLog.length) logEl.innerHTML = syncLog.slice(-20).reverse().map(l => `<div>[${l.time}] ${l.msg}</div>`).join('');
+}
+
+async function connectBank(bankId) {
+  if (!workerUrl) { toast('Configura prima l\'URL del Worker', 'ko'); return; }
+  toast('🔗 Avvio autenticazione ' + BANKS[bankId].name + '…', 'info');
+  try {
+    const res = await fetch(workerUrl + '/connect', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ bankId, redirectBack: window.location.href.split('?')[0] })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    window.location.href = data.url;
+  } catch(e) { toast('Errore: '+e.message, 'ko'); }
+}
+
+async function syncBank(bankId) {
+  const sess = activeSessions.find(s => s.bankId === bankId);
+  if (!sess || !workerUrl) return;
+  const btn = document.getElementById('btn-sync-' + bankId);
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Sync…'; }
+
+  let added = 0;
+  try {
+    for (const accountId of (sess.accounts || [])) {
+      const res = await fetch(`${workerUrl}/transactions?account=${accountId}&from=${nDaysAgo(90)}`);
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      const existing = new Set(apiTx.map(t => `${t.dataStr||t.data}|${t.importo}|${t.descrizione}`));
+      (data.transactions || []).forEach(t => {
+        const key = `${t.date}|${t.amount}|${t.description}`;
+        if (!existing.has(key)) {
+          apiTx.push({
+            data: t.date, dataStr: fmtD(parseD(t.date)),
+            descrizione: t.description,
+            tipologia: autoCateg(t.description, t.amount),
+            importo: t.amount,
+            tipo: t.amount >= 0 ? 'entrata' : 'uscita',
+            conto: '',
+            acquirente: ACQUIRENTE_MAP[bankId] || '',
+            budget: getBudget(tipologia, ''),
+            source: bankId
+          });
+          added++;
+        }
+      });
+    }
+    // Aggiorna last sync
+    sess.lastSync = new Date().toLocaleString('it-IT');
+    // Salva sessione aggiornata su GS
+    const updatedSess = activeSessions.find(s => s.bankId === bankId);
+    if (updatedSess) await gsSaveSession(updatedSess);
+    // Salva nuove transazioni su GS
+    if (added > 0) await gsSaveTransactions(apiTx.slice(-added));
+    logSync(`${BANKS[bankId].name}: +${added} transazioni`);
+    toast(`✓ ${BANKS[bankId].name}: +${added} movimenti`, 'ok');
+    mergeAndRefresh();
+  } catch(e) {
+    logSync(`${BANKS[bankId].name}: errore — ${e.message}`);
+    toast('Sync fallito: '+e.message, 'ko');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Sincronizza'; }
+    renderBanks();
+  }
+}
+
+function disconnectBank(bankId) {
+  activeSessions = activeSessions.filter(s => s.bankId !== bankId);
+  await gsDeleteSession(bankId);  // rimuovi da GS
+  logSync(`${BANKS[bankId]?.name || bankId}: disconnesso`);
+  toast('Conto disconnesso', 'ok');
+  renderBanks();
+}
+
+function logSync(msg) {
+  syncLog.push({ time: new Date().toLocaleTimeString('it-IT'), msg });
+  gsAddLog(msg);  // asincrono, non blocca UI
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  OAUTH CALLBACK
+// ═══════════════════════════════════════════════════════════════
+function handleOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const bank = params.get('bank');
+  const sessionId = params.get('session');
+  const accountsRaw = params.get('accounts');
+  const error = params.get('error');
+
+  if (error) { toast('Errore auth: '+error, 'ko'); cleanup(); return; }
+  if (!bank || !sessionId) return;
+
+  let accounts = [];
+  try { accounts = JSON.parse(accountsRaw || '[]'); } catch {}
+
+  const idx = activeSessions.findIndex(s => s.bankId === bank);
+  const sessionData = { bankId: bank, sessionId, accounts, lastSync: null };
+  if (idx >= 0) activeSessions[idx] = sessionData; else activeSessions.push(sessionData);
+  // Salva sessione su Google Sheets
+  await gsSaveSession(sessionData);
+
+  cleanup();
+  toast(`✓ ${BANKS[bank]?.name || bank} connesso! Avvio sincronizzazione…`, 'ok');
+  logSync(`${BANKS[bank]?.name || bank}: connesso`);
+
+  // Vai su Banche e avvia sync
+  const navBtn = document.getElementById('nav-banche');
+  go('banche', navBtn);
+  setTimeout(() => syncBank(bank), 600);
+
+  function cleanup() { window.history.replaceState({}, '', window.location.pathname); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CSV IMPORT
+// ═══════════════════════════════════════════════════════════════
+function dzOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('over'); }
+function dzLeave() { document.getElementById('dropZone').classList.remove('over'); }
+function dzDrop(e) { e.preventDefault(); dzLeave(); if (e.dataTransfer.files[0]) parseCSV(e.dataTransfer.files[0]); }
+function handleFile(e) { if (e.target.files[0]) parseCSV(e.target.files[0]); }
+
+// Mappa fonte → acquirente
+const ACQUIRENTE_MAP = {
+  mediolanum: 'Gioacchino',
+  postepay:   'Alessandra',
+  csv:        ''
+};
+
+// Mappa tipologia → budget (da specifica utente)
+const BUDGET_MAP = {
+  'Alimenti':                  'Necessità',
+  'Assicurazione':             'Necessità',
+  'Automobile - Benzina':      'Necessità',
+  'Automobile - Leasing':      'Necessità',
+  'Automobile - Manutenzione': 'Necessità',
+  'Automobile - Parcheggio':   'Tempo libero',
+  'Automobile - Altro':        'Necessità',
+  'Banca - Carta di credito':  'Tempo libero',
+  'Banca - Commissioni':       'Necessità',
+  'Banca - Mutuo':             'Necessità',
+  'Banca - Titoli':            'Necessità',
+  'Bollette - Acqua':          'Necessità',
+  'Bollette - Altro':          'Necessità',
+  'Bollette - Elettricità':    'Necessità',
+  'Bollette - Gas':            'Necessità',
+  'Bollette - Internet':       'Necessità',
+  'Bollette - Rifiuti':        'Necessità',
+  'Casa - Affitto':            'Necessità',
+  'Casa - Altro':              'Necessità',
+  'Casa - Arredamento':        'Necessità',
+  'Casa - Manutenzione':       'Necessità',
+  'Divertimenti':              'Tempo libero',
+  'Famiglia':                  'Tempo libero',
+  'Formazione':                'Tempo libero',
+  'Pasti':                     'Tempo libero',
+  'Personale - Capelli':       'Tempo libero',
+  'Personale - Cosmetici':     'Tempo libero',
+  'Personale - Medicinali':    'Necessità',
+  'Personale - Sport':         'Tempo libero',
+  'Regali':                    'Tempo libero',
+  'Shopping - Abbigliamento':  'Tempo libero',
+  'Shopping - Altro':          'Tempo libero',
+  'Shopping - Elettronica':    'Tempo libero',
+  'Shopping - Libri':          'Tempo libero',
+  'Tasse':                     'Necessità',
+  'Varie':                     'Tempo libero',
+  'Viaggi':                    'Tempo libero',
+  // Income
+  'Stipendio':                 '',
+  'Lavoro':                    '',
+  'Interessi':                 '',
+  'Altro':                     '',
+};
+
+function getBudget(tipologia, budgetFromCsv) {
+  // Se il CSV ha già un valore budget non vuoto, lo usa
+  if (budgetFromCsv && budgetFromCsv.trim()) return budgetFromCsv.trim();
+  // Altrimenti deriva dalla tipologia
+  return BUDGET_MAP[tipologia] || '';
+}
+
+function updateAcquirente(src) {
+  // Feedback visivo opzionale
+}
+
+function parseCSV(file) {
+  const sep      = document.getElementById('csvSep').value;
+  const colD     = document.getElementById('colData').value.trim();
+  const colDesc  = document.getElementById('colDesc').value.trim();
+  const colAmt   = document.getElementById('colImporto').value.trim();
+  const colTip   = document.getElementById('colTipologia')?.value.trim() || '';
+  const colCont  = document.getElementById('colConto')?.value.trim() || '';
+  const colBudg  = document.getElementById('colBudget')?.value.trim() || '';
+  const src      = document.getElementById('csvSrc').value;
+  const acquirente = ACQUIRENTE_MAP[src] || '';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    // Prova UTF-8 poi latin1
+    let text = e.target.result;
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) { toast('File vuoto o non leggibile', 'ko'); return; }
+
+    const sep2 = sep === '\t' ? '\t' : sep;
+    const headers = lines[0].split(sep2).map(h => h.trim().replace(/^"|"$/g,''));
+
+    const idx = (name) => name ? headers.findIndex(h => h.toLowerCase() === name.toLowerCase()) : -1;
+
+    const iD    = idx(colD);
+    const iDe   = idx(colDesc);
+    const iA    = idx(colAmt);
+    const iTip  = idx(colTip);
+    const iCont = idx(colCont);
+    const iBudg = idx(colBudg);
+    // Cerca anche colonna "Tipo importo" automaticamente
+    const iTipoImp = headers.findIndex(h => h.toLowerCase().includes('tipo'));
+
+    if (iD < 0 || iDe < 0 || iA < 0) {
+      toast('Colonne obbligatorie non trovate. Intestazioni rilevate: ' + headers.join(' | '), 'ko');
+      return;
+    }
+
+    let added = 0;
+    const existing = new Set(csvTx.map(t => `${t.data}|${t.importo}|${t.descrizione}`));
+
+    lines.slice(1).forEach(line => {
+      if (!line.trim()) return;
+      const cols = line.split(sep2).map(c => c.trim().replace(/^"|"$/g,''));
+      if (cols.length <= Math.max(iD, iDe, iA)) return;
+
+      // Importo: gestisce separatori italiani (punto migliaia, virgola decimale)
+      const rawAmt = (cols[iA] || '').replace(/\./g,'').replace(',','.');
+      const amount = parseFloat(rawAmt);
+      if (isNaN(amount)) return;
+
+      const desc    = cols[iDe] || '';
+      const dateStr = cols[iD]  || '';
+
+      // Tipo importo: usa colonna se presente, altrimenti dal segno
+      let tipoImp;
+      if (iTipoImp >= 0 && cols[iTipoImp]) {
+        const raw = cols[iTipoImp].toLowerCase();
+        tipoImp = raw.includes('income') || raw.includes('entrata') ? 'entrata' : 'uscita';
+      } else {
+        tipoImp = amount >= 0 ? 'entrata' : 'uscita';
+      }
+
+      // Tipologia: usa colonna CSV se presente, altrimenti auto-detect
+      let tipologia;
+      if (iTip >= 0 && cols[iTip] && cols[iTip].trim()) {
+        tipologia = cols[iTip].trim();
+      } else {
+        tipologia = autoCateg(desc, amount);
+      }
+
+      // Conto: usa colonna CSV, altrimenti usa il selettore manuale
+      let conto = '';
+      if (iCont >= 0 && cols[iCont] && cols[iCont].trim()) {
+        conto = cols[iCont].trim();
+      } else {
+        const manuale = document.getElementById('contoManuale')?.value || '';
+        if (manuale) conto = manuale;
+      }
+
+      // Budget
+      const budget = getBudget(tipologia, iBudg >= 0 ? (cols[iBudg] || '') : '');
+
+      const key = `${dateStr}|${amount}|${desc}`;
+      if (!existing.has(key)) {
+        csvTx.push({
+          data: dateStr,
+          dataStr: fmtD(parseD(dateStr)),
+          descrizione: desc,
+          tipologia,
+          importo: amount,
+          tipo: tipoImp,
+          conto,
+          acquirente,
+          budget,
+          source: src
+        });
+        existing.add(key);
+        added++;
+      }
+    });
+
+    // Salva nuove transazioni su Google Sheets
+    if (added > 0) await gsSaveTransactions(csvTx.slice(-added));
+    toast(`✓ ${added} movimenti importati da ${file.name}`, 'ok');
+    logSync(`CSV "${file.name}" (${src}, acquirente: ${acquirente||'—'}): +${added} transazioni`);
+    mergeAndRefresh();
+    renderSrcSummary();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function mergeAndRefresh() {
+  // Ricarica senza perdere i dati json
+  const jsonRows = allTx.filter(r => r.source === 'json');
+  mergeAll(jsonRows);
+  fillDrops();
+  applyFilters();
+}
+
+function renderSrcSummary() {
+  const counts = {};
+  allTx.forEach(r => { counts[r.source] = (counts[r.source]||0)+1; });
+  const el = document.getElementById('src-summary');
+  if (!el) return;
+  el.innerHTML = `<table>
+    <thead><tr><th>FONTE</th><th style="text-align:right">TRANSAZIONI</th><th style="text-align:right">USCITE</th><th style="text-align:right">ENTRATE</th></tr></thead>
+    <tbody>${Object.entries(counts).map(([src, cnt]) => {
+      const rows = allTx.filter(r => r.source === src);
+      const uscite = rows.filter(r=>r.tipo==='uscita').reduce((s,r)=>s+Math.abs(r.importo),0);
+      const entrate = rows.filter(r=>r.tipo==='entrata').reduce((s,r)=>s+r.importo,0);
+      return `<tr><td><span class="src-tag src-${src}">${SRC_LABELS[src]||src}</span></td><td style="text-align:right;color:var(--muted2)">${cnt}</td><td style="text-align:right" class="ao">${eur(uscite)}</td><td style="text-align:right" class="ai">${eur(entrate)}</td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+async function clearApiTx() {
+  apiTx = [];
+  // Riscrivi tutto il foglio senza le righe API
+  const remaining = allTx.filter(r => r.source === 'json' || csvTx.some(c => c === r));
+  await gsPost({ action: 'replace', rows: remaining.concat(csvTx).map(r => ({
+    'Data Operazione': r.dataStr||r.data||'', 'Descrizione': r.descrizione||'',
+    'Importo': r.importo, 'Tipologia': r.tipologia||'', 'Conto': r.conto||'',
+    'Acquirente': r.acquirente||'', 'Tipo importo': r.tipo==='entrata'?'Income':'Expense',
+    'Budget': r.budget||'', 'Fonte': r.source||'csv'
+  }))});
+  toast('Transazioni API rimosse', 'ok');
+  mergeAndRefresh(); renderSrcSummary();
+}
+async function clearCsvTx() {
+  csvTx = [];
+  const remaining = allTx.filter(r => r.source !== 'csv').concat(apiTx);
+  await gsPost({ action: 'replace', rows: remaining.map(r => ({
+    'Data Operazione': r.dataStr||r.data||'', 'Descrizione': r.descrizione||'',
+    'Importo': r.importo, 'Tipologia': r.tipologia||'', 'Conto': r.conto||'',
+    'Acquirente': r.acquirente||'', 'Tipo importo': r.tipo==='entrata'?'Income':'Expense',
+    'Budget': r.budget||'', 'Fonte': r.source||'csv'
+  }))});
+  toast('Transazioni CSV rimosse', 'ok');
+  mergeAndRefresh(); renderSrcSummary();
+}
+
+function exportAllCSV() {
+  const rows = [['Data Operazione','Descrizione','Importo','Tipologia','Conto','Acquirente','Tipo importo','Budget','Fonte']];
+  allTx.forEach(r => rows.push([
+    r.dataStr,
+    '"'+r.descrizione+'"',
+    r.importo.toFixed(2),
+    r.tipologia,
+    r.conto,
+    r.acquirente,
+    r.tipo === 'entrata' ? 'Income' : 'Expense',
+    r.budget,
+    r.source
+  ]));
+  const csv = rows.map(r => r.join(';')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'}));
+  a.download = 'bilancio_export_'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+  toast('CSV esportato', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MODAL / TOAST / UI
+// ═══════════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModalBg(e, id) { if (e.target.id === id) closeModal(id); }
+
+let toastT;
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show ' + type;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+function sv(id,val,cls){const e=document.getElementById(id);if(e){e.textContent=val;e.className='kpi-val '+(cls||'');}}
+function st(id,val){const e=document.getElementById(id);if(e)e.textContent=val;}
+function hide(id){const e=document.getElementById(id);if(e)e.style.display='none';}
+function show(id){const e=document.getElementById(id);if(e)e.style.display='flex';}
+function dot(color) {
+  const d = document.getElementById('status-dot');
+  if (!d) return;
+  d.className = 'dot'+(color==='green'?'':color==='red'?' red':' off');
+}
+function stamp(msg) { st('stxt', msg); }
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+// ── AVVIO ──────────────────────────────────────────────────────
+// 1) Carica GS URL dal localStorage (l'unica cosa che rimane lì)
+loadGsUrl();
+
+// 2) Carica da Google Sheets (transazioni + sessioni + config + log)
+//    Poi, se data.json esiste, lo carica e fa il merge
+gsLoad().then(() => {
+  // Tenta caricamento data.json (opzionale — se assente non è un errore)
+  loadData();
+  setInterval(loadData, REFRESH);
+});
+
+// 3) Gestisci callback OAuth da Enable Banking (se siamo tornati dal redirect)
+handleOAuthCallback();
+</script>
+</body>
+</html>

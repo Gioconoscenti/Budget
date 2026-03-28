@@ -549,69 +549,46 @@ function saveGsUrl() {
   localStorage.setItem('bp_gs_url', GS_URL);
 }
 
-// ── Lettura: GET normale con risposta JSON ────────────────────
-async function gsGet(action) {
-  if (!GS_URL) throw new Error('URL Google Sheets non configurato');
-  const url = GS_URL + '?action=' + encodeURIComponent(action);
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) throw new Error('GS HTTP ' + res.status);
-  const text = await res.text();
-  try { return JSON.parse(text); }
-  catch { throw new Error('GS risposta non JSON: ' + text.slice(0, 100)); }
-}
+// ── Tutto via GET — evita il redirect 302 che spoglia il body ──
+// Per payload grandi (write) li spezziamo in chunk da 30 righe
+// URL max ~7KB per chunk, ampiamente nei limiti di Apps Script
 
-// ── Scrittura: POST no-cors (non legge risposta, ma scrive su GS)
-// Apps Script accetta POST e risponde con redirect — no-cors bypassa il problema CORS
-// Per grossi payload (write) li spezziamo in batch da 50 righe
-async function gsPost(action, payload) {
+async function gsCall(action, payload) {
   if (!GS_URL) throw new Error('URL Google Sheets non configurato');
 
-  // Se è un write con molte righe, inviamo in batch
-  if ((action === 'write' || action === 'replace') && payload && payload.rows && payload.rows.length > 50) {
+  // Scritture con array di righe → batch da 30
+  if (payload && payload.rows && payload.rows.length > 30) {
     const rows = payload.rows;
-    // Per replace: prima svuota, poi aggiunge in batch
     if (action === 'replace') {
-      await gsSendPost('replace', { rows: rows.slice(0, 50) });
-      for (let i = 50; i < rows.length; i += 50) {
-        await gsSendPost('write', { rows: rows.slice(i, i + 50) });
+      // Prima chunk usa replace, i successivi write
+      await gsFetch('replace', { rows: rows.slice(0, 30) });
+      for (let i = 30; i < rows.length; i += 30) {
+        await gsFetch('write', { rows: rows.slice(i, i + 30) });
       }
     } else {
-      for (let i = 0; i < rows.length; i += 50) {
-        await gsSendPost('write', { rows: rows.slice(i, i + 50) });
+      for (let i = 0; i < rows.length; i += 30) {
+        await gsFetch('write', { rows: rows.slice(i, i + 30) });
       }
     }
     return { ok: true };
   }
 
-  return gsSendPost(action, payload);
+  return gsFetch(action, payload);
 }
 
-async function gsSendPost(action, payload) {
-  const url = GS_URL + '?action=' + encodeURIComponent(action);
-  const body = JSON.stringify(payload || {});
-  try {
-    // Proviamo prima con cors normale
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body,
-      redirect: 'follow',
-    });
-    if (res.ok) {
-      const text = await res.text();
-      try { return JSON.parse(text); } catch { return { ok: true }; }
-    }
-  } catch(e) {
-    // Se cors blocca, usiamo no-cors (scrittura avviene ma non leggiamo risposta)
-    await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body,
-    });
-  }
-  return { ok: true };
+async function gsFetch(action, payload) {
+  if (!GS_URL) throw new Error('URL Google Sheets non configurato');
+  let url = GS_URL + '?action=' + encodeURIComponent(action);
+  if (payload) url += '&payload=' + encodeURIComponent(JSON.stringify(payload));
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) throw new Error('GS HTTP ' + res.status);
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { return { ok: true }; }
 }
+
+const gsGet  = (action)          => gsCall(action);
+const gsPost = (action, payload) => gsCall(action, payload);
 
 // ── CARICAMENTO INIZIALE ──────────────────────────────────────
 async function gsLoad() {

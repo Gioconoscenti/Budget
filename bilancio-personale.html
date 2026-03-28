@@ -424,9 +424,11 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
         <span style="font-size:10px;color:var(--muted2)">Viene applicato alle righe senza colonna Conto compilata</span>
       </div>
       <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn" onclick="exportAllCSV()">↓ Esporta tutto in CSV</button>
-        <button class="btn ghost sm" onclick="clearApiTx()">✕ Rimuovi transazioni API</button>
-        <button class="btn ghost sm" onclick="clearCsvTx()">✕ Rimuovi CSV importati</button>
+        <button class="btn" onclick="exportAllCSV()">↓ Esporta CSV</button>
+        <button class="btn sm" style="background:var(--acc2);color:#07080f" onclick="exportForSheets()">↓ Esporta per Google Sheets</button>
+        <button class="btn ghost sm" onclick="uploadToSheets()">↑ Carica tutto su GS</button>
+        <button class="btn ghost sm" onclick="clearApiTx()">✕ Rimuovi API</button>
+        <button class="btn ghost sm" onclick="clearCsvTx()">✕ Rimuovi CSV</button>
       </div>
     </div>
 
@@ -536,12 +538,12 @@ function autoCateg(desc, importo) {
 //  Tutte le operazioni usano GET con ?action=...&payload=<json>
 //  Il Code.gs legge i dati dal parametro "payload"
 // ═══════════════════════════════════════════════════════════════
-let GS_URL = localStorage.getItem('bp_gs_url') || '';
+let GS_URL = localStorage.getItem('bp_gs_url') || 'https://script.google.com/macros/s/AKfycbxuXjaNQOFsXAeinriHkfSPhqYQM2bQ-Y-y52xX-zbKtLAHHUCowMMnyuXHngZ3XPr3_w/exec';
 
 function loadGsUrl() {
-  GS_URL = localStorage.getItem('bp_gs_url') || '';
+  GS_URL = localStorage.getItem('bp_gs_url') || 'https://script.google.com/macros/s/AKfycbxuXjaNQOFsXAeinriHkfSPhqYQM2bQ-Y-y52xX-zbKtLAHHUCowMMnyuXHngZ3XPr3_w/exec';
   const inp = document.getElementById('gsUrl');
-  if (inp && GS_URL) inp.value = GS_URL;
+  if (inp) inp.value = GS_URL;
 }
 
 function saveGsUrl() {
@@ -556,18 +558,30 @@ function saveGsUrl() {
 async function gsCall(action, payload) {
   if (!GS_URL) throw new Error('URL Google Sheets non configurato');
 
-  // Scritture con array di righe → batch da 30
-  if (payload && payload.rows && payload.rows.length > 30) {
+  // Scritture con array di righe → batch da 100
+  if (payload && payload.rows && payload.rows.length > 0) {
     const rows = payload.rows;
+    const BATCH = 100;
+    const total = rows.length;
+    let written = 0;
+
     if (action === 'replace') {
-      // Prima chunk usa replace, i successivi write
-      await gsFetch('replace', { rows: rows.slice(0, 30) });
-      for (let i = 30; i < rows.length; i += 30) {
-        await gsFetch('write', { rows: rows.slice(i, i + 30) });
+      // Prima batch: replace (svuota e scrive)
+      await gsFetch('replace', { rows: rows.slice(0, BATCH) });
+      written += Math.min(BATCH, total);
+      // Batch successivi: append
+      for (let i = BATCH; i < total; i += BATCH) {
+        const chunk = rows.slice(i, i + BATCH);
+        await gsFetch('write', { rows: chunk });
+        written += chunk.length;
+        stamp('GS scrittura ' + written + '/' + total + '…');
       }
     } else {
-      for (let i = 0; i < rows.length; i += 30) {
-        await gsFetch('write', { rows: rows.slice(i, i + 30) });
+      for (let i = 0; i < total; i += BATCH) {
+        const chunk = rows.slice(i, i + BATCH);
+        await gsFetch('write', { rows: chunk });
+        written += chunk.length;
+        if (total > BATCH) stamp('GS scrittura ' + written + '/' + total + '…');
       }
     }
     return { ok: true };
@@ -604,8 +618,9 @@ async function gsLoad() {
     ]);
 
     const rows = txData.rows || [];
-    apiTx = rows.filter(r => r['Fonte'] === 'mediolanum' || r['Fonte'] === 'postepay').map(gsRowToInternal);
-    csvTx = rows.filter(r => !['mediolanum','postepay','json'].includes(r['Fonte'])).map(gsRowToInternal);
+    // Tutte le righe da GS vanno in csvTx — la separazione per fonte è solo per il tag visivo
+    apiTx = [];
+    csvTx = rows.map(gsRowToInternal);
 
     activeSessions = (sessData.sessions || []).map(s => ({
       bankId:    s.bankId,
@@ -636,16 +651,20 @@ function gsRowToInternal(r) {
   const imp     = parseFloat(String(r['Importo'] || '0').replace(',', '.')) || 0;
   const tipoRaw = (r['Tipo importo'] || '').toLowerCase();
   const tipo    = tipoRaw === 'income' ? 'entrata' : tipoRaw === 'expense' ? 'uscita' : (imp >= 0 ? 'entrata' : 'uscita');
+  // Parsa la data — gestisce sia 'DD/MM/YYYY' che stringhe Date JS che ISO
+  const rawDate = r['Data Operazione'] || '';
+  const parsedDate = parseD(rawDate);
+  const dateStr = parsedDate ? fmtD(parsedDate) : rawDate;
   return {
-    data:        r['Data Operazione'] || '',
-    dataStr:     r['Data Operazione'] || '',
-    descrizione: r['Descrizione']     || '',
-    tipologia:   r['Tipologia']       || '',
+    data:        parsedDate || rawDate,
+    dataStr:     dateStr,
+    descrizione: r['Descrizione']  || '',
+    tipologia:   r['Tipologia']    || '',
     importo:     imp, tipo,
-    conto:       r['Conto']           || '',
-    acquirente:  r['Acquirente']      || '',
-    budget:      r['Budget']          || '',
-    source:      r['Fonte']           || 'csv',
+    conto:       r['Conto']        || '',
+    acquirente:  r['Acquirente']   || '',
+    budget:      r['Budget']       || '',
+    source:      r['Fonte']        || 'csv',
   };
 }
 
@@ -824,9 +843,15 @@ function mergeAll(jsonRows) {
 // ═══════════════════════════════════════════════════════════════
 function parseD(s) {
   if (!s) return null; s = String(s).trim();
+  // ISO: 2021-01-04
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  // Italiano: 04/01/2021 o 4/1/2021
   m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  // Seriale Excel
   if (/^\d{5}$/.test(s)) return new Date((+s - 25569) * 86400000);
+  // Stringa JS lunga: "Mon Jan 04 2021 00:00:00 GMT+0100..."
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   return null;
 }
 function fmtD(d) { return d ? d.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit', year:'numeric'}) : '—'; }
@@ -1513,6 +1538,43 @@ async function clearCsvTx() {
   await gsReplaceTransactions(remaining);
   toast('Transazioni CSV rimosse', 'ok');
   mergeAndRefresh(); renderSrcSummary();
+}
+
+// Esporta CSV già formattato per importazione diretta su Google Sheets
+function exportForSheets() {
+  const rows = [['Data Operazione','Descrizione','Importo','Tipologia','Conto','Acquirente','Tipo importo','Budget','Fonte']];
+  allTx.forEach(r => rows.push([
+    r.dataStr || r.data || '',
+    '"' + (r.descrizione||'').replace(/"/g,'""') + '"',
+    r.importo,
+    r.tipologia || '',
+    r.conto || '',
+    r.acquirente || '',
+    r.tipo === 'entrata' ? 'Income' : 'Expense',
+    r.budget || '',
+    r.source || 'csv'
+  ]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'}));
+  a.download = 'transazioni_per_gsheets_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  toast('CSV per Google Sheets esportato (' + allTx.length + ' righe)', 'ok');
+}
+
+// Carica TUTTE le transazioni su GS (con progress)
+async function uploadToSheets() {
+  if (!allTx.length) { toast('Nessuna transazione da caricare', 'ko'); return; }
+  if (!GS_URL) { toast('GS URL non configurato', 'ko'); return; }
+  toast('↑ Caricamento ' + allTx.length + ' righe su GS…', 'info');
+  try {
+    const rows = allTx.map(toGsRow);
+    await gsCall('replace', { rows });
+    toast('✓ ' + allTx.length + ' transazioni caricate su Google Sheets', 'ok');
+    logSync('Upload completo: ' + allTx.length + ' transazioni');
+  } catch(e) {
+    toast('Errore upload: ' + e.message, 'ko');
+  }
 }
 
 function exportAllCSV() {

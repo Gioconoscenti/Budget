@@ -773,7 +773,7 @@ function go(id, btn) {
 async function loadData() {
   try {
     const res = await fetch(DATA_FILE + '?t=' + Date.now());
-    if (!res.ok) throw new Error('data.json non trovato');
+    if (!res.ok) return; // data.json opzionale — se assente, nessun errore
     const lm = res.headers.get('last-modified');
     if (lm === lastMod && allTx.length) return;
     lastMod = lm;

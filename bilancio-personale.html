@@ -1579,19 +1579,22 @@ function stamp(msg) { st('stxt', msg); }
 //  INIT
 // ═══════════════════════════════════════════════════════════════
 // ── AVVIO ──────────────────────────────────────────────────────
-// 1) Carica GS URL dal localStorage (l'unica cosa che rimane lì)
-loadGsUrl();
+async function init() {
+  // 1) Carica GS URL dal localStorage (l'unica cosa che rimane lì)
+  loadGsUrl();
 
-// 2) Carica da Google Sheets (transazioni + sessioni + config + log)
-//    Poi, se data.json esiste, lo carica e fa il merge
-gsLoad().then(() => {
-  // Tenta caricamento data.json (opzionale — se assente non è un errore)
+  // 2) Carica da Google Sheets (transazioni + sessioni + config + log)
+  await gsLoad();
+
+  // 3) Tenta caricamento data.json (opzionale — se assente non è un errore)
   loadData();
   setInterval(loadData, REFRESH);
-});
 
-// 3) Gestisci callback OAuth da Enable Banking (se siamo tornati dal redirect)
-handleOAuthCallback();
+  // 4) Gestisci callback OAuth da Enable Banking
+  handleOAuthCallback();
+}
+
+init();
 </script>
 </body>
 </html>

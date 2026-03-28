@@ -1249,7 +1249,7 @@ async function syncBank(bankId) {
   }
 }
 
-function disconnectBank(bankId) {
+async function disconnectBank(bankId) {
   activeSessions = activeSessions.filter(s => s.bankId !== bankId);
   await gsDeleteSession(bankId);  // rimuovi da GS
   logSync(`${BANKS[bankId]?.name || bankId}: disconnesso`);
@@ -1265,7 +1265,7 @@ function logSync(msg) {
 // ═══════════════════════════════════════════════════════════════
 //  OAUTH CALLBACK
 // ═══════════════════════════════════════════════════════════════
-function handleOAuthCallback() {
+async function handleOAuthCallback() {
   const params = new URLSearchParams(window.location.search);
   const bank = params.get('bank');
   const sessionId = params.get('session');
@@ -1380,7 +1380,7 @@ function parseCSV(file) {
   const acquirente = ACQUIRENTE_MAP[src] || '';
 
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     // Prova UTF-8 poi latin1
     let text = e.target.result;
     const lines = text.split('\n').filter(l => l.trim());

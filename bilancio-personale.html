@@ -842,14 +842,20 @@ function mergeAll(jsonRows) {
 //  UTILITY DATE / FORMAT
 // ═══════════════════════════════════════════════════════════════
 function parseD(s) {
-  if (!s) return null; s = String(s).trim();
-  // ISO: 2021-01-04
-  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  if (!s) return null;
+  // Numero seriale Excel
+  if (typeof s === 'number') return new Date((s - 25569) * 86400 * 1000);
+  s = String(s).trim();
+  // ISO puro: 2021-01-04
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
   // Italiano: 04/01/2021 o 4/1/2021
-  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if (m) return new Date(+m[3], +m[2]-1, +m[1]);
-  // Seriale Excel
-  if (/^\d{5}$/.test(s)) return new Date((+s - 25569) * 86400000);
-  // Stringa JS lunga: "Mon Jan 04 2021 00:00:00 GMT+0100..."
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  // Seriale Excel come stringa
+  if (/^\d{5}$/.test(s)) return new Date((+s - 25569) * 86400 * 1000);
+  // Qualsiasi altra stringa (ISO UTC, Date JS lunga, ecc.)
+  // USA getFullYear/Month/Date — NON toISOString() che riporta in UTC
   const d = new Date(s);
   if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   return null;

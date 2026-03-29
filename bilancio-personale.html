@@ -639,6 +639,8 @@ async function gsLoad() {
     syncLog = (logData.entries || []).map(e => ({ time: e.time, msg: e.msg }));
 
     dot('green'); stamp('GS sync OK · ' + rows.length + ' tx');
+    mergeAndRefresh();
+    if (curSec === 'banche') renderBanks();
   } catch(e) {
     dot('red'); stamp('GS errore: ' + e.message);
     toast('Errore GS: ' + e.message, 'ko');

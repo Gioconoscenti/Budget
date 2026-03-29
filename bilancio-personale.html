@@ -592,6 +592,23 @@ async function gsCall(action, payload) {
 
 async function gsFetch(action, payload) {
   if (!GS_URL) throw new Error('URL Google Sheets non configurato');
+
+  // Azioni di scrittura → POST no-cors (evita limite URL e CORS preflight)
+  const WRITE_ACTIONS = new Set(['write','replace','saveSession','deleteSession','saveConfig','addLog','clearLog']);
+  
+  if (WRITE_ACTIONS.has(action)) {
+    // POST no-cors: la scrittura avviene ma non leggiamo la risposta
+    const body = JSON.stringify(Object.assign({ action }, payload || {}));
+    await fetch(GS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body,
+    });
+    return { ok: true };
+  }
+
+  // Azioni di lettura → GET normale
   let url = GS_URL + '?action=' + encodeURIComponent(action);
   if (payload) url += '&payload=' + encodeURIComponent(JSON.stringify(payload));
   const res = await fetch(url, { redirect: 'follow' });
@@ -1275,6 +1292,13 @@ async function syncBank(bankId) {
     if (added > 0) await gsSaveTransactions(apiTx.slice(-added));
     logSync(`${BANKS[bankId].name}: +${added} transazioni`);
     toast(`✓ ${BANKS[bankId].name}: +${added} movimenti`, 'ok');
+    // Salva su Google Sheets
+    if (added > 0) {
+      const nuove = apiTx.slice(-added);
+      gsSaveTransactions(nuove).then(r => {
+        if (r && r.added) toast(`✓ ${r.added} righe salvate su GS`, 'ok');
+      }).catch(e => toast('Errore GS: ' + e.message, 'ko'));
+    }
     mergeAndRefresh();
   } catch(e) {
     logSync(`${BANKS[bankId].name}: errore — ${e.message}`);

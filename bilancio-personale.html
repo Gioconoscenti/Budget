@@ -1250,10 +1250,11 @@ async function syncBank(bankId) {
       (data.transactions || []).forEach(t => {
         const key = `${t.date}|${t.amount}|${t.description}`;
         if (!existing.has(key)) {
+          const tipologia = autoCateg(t.description, t.amount);
           apiTx.push({
             data: t.date, dataStr: fmtD(parseD(t.date)),
             descrizione: t.description,
-            tipologia: autoCateg(t.description, t.amount),
+            tipologia,
             importo: t.amount,
             tipo: t.amount >= 0 ? 'entrata' : 'uscita',
             conto: '',

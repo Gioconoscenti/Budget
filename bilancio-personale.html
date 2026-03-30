@@ -666,10 +666,7 @@ const CSV_RULES = {"ACCREDITO CASHBACK SCONTIPOSTE ACCREDITO CASHBACK SCONTIPOST
 // Le regole utente sono sovrapposizioni a CSV_RULES e BUDGET_MAP
 // Salvate in localStorage per persistenza locale
 
-// Regole utente separate per expense e income
-let userExpRules = JSON.parse(localStorage.getItem('bp_exp_rules') || 'null') || {...EXPENSE_RULES};
-let userIncRules = JSON.parse(localStorage.getItem('bp_inc_rules') || 'null') || {...INCOME_RULES};
-let userBudRules = JSON.parse(localStorage.getItem('bp_bud_rules') || 'null') || {...BUDGET_MAP};
+// userExpRules/userIncRules/userBudRules dichiarati dopo EXPENSE_RULES
 
 function saveExpRules() { localStorage.setItem('bp_exp_rules', JSON.stringify(userExpRules)); gsCall('saveRules',{tipo:'expense',rules:userExpRules}).catch(()=>{}); }
 function saveIncRules() { localStorage.setItem('bp_inc_rules', JSON.stringify(userIncRules)); gsCall('saveRules',{tipo:'income',rules:userIncRules}).catch(()=>{}); }
@@ -1888,6 +1885,11 @@ const BUDGET_MAP = {
   'Interessi':                 '',
   'Altro':                     '',
 };
+
+// Regole utente — inizializzate dopo EXPENSE_RULES, INCOME_RULES, BUDGET_MAP
+let userExpRules = JSON.parse(localStorage.getItem('bp_exp_rules') || 'null') || {...EXPENSE_RULES};
+let userIncRules = JSON.parse(localStorage.getItem('bp_inc_rules') || 'null') || {...INCOME_RULES};
+let userBudRules = JSON.parse(localStorage.getItem('bp_bud_rules') || 'null') || {...BUDGET_MAP};
 
 function getBudget(tipologia, budgetFromCsv) {
   // Se il CSV ha già un valore budget non vuoto, lo usa

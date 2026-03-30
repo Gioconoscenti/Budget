@@ -1838,31 +1838,38 @@ function clearPending() {
 }
 
 // Confronta nuove righe con quelle già su GS
-// Chiave: data + importo (la descrizione può differire tra CSV e API)
-// Per evitare falsi negativi usiamo anche una chiave "morbida" data+importo
+// Per transazioni API (mediolanum/postepay): chiave data+importo+fonte
+// Per CSV: chiave data+importo+inizio_descrizione normalizzato
 function filterNew(rows) {
-  // Chiave primaria: data + importo + primi 30 chars descrizione (normalizzati)
-  const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,30);
-  const makeKey = t => `${t.dataStr||t.data}|${t.importo}`;
-  const makeKeyFull = t => `${t.dataStr||t.data}|${t.importo}|${norm(t.descrizione)}`;
+  const norm = s => (s||'').toUpperCase().replace(/\s+/g,' ').trim().slice(0,20);
 
-  const gsKeys     = new Set(allTx.map(makeKey));
-  const gsKeysFull = new Set(allTx.map(makeKeyFull));
-  const pendKeys   = new Set(pendingTx.map(makeKey));
+  // Indice GS per fonte bancaria: data+importo+fonte
+  const gsKeysBySource = new Set(
+    allTx.filter(t => t.source === 'mediolanum' || t.source === 'postepay')
+         .map(t => `${t.dataStr}|${t.importo}|${t.source}`)
+  );
+  // Indice GS per CSV: data+importo+inizio_descrizione
+  const gsKeysCsv = new Set(
+    allTx.map(t => `${t.dataStr}|${t.importo}|${norm(t.descrizione)}`)
+  );
+  // Pending già in attesa: data+importo+fonte
+  const pendKeys = new Set(
+    pendingTx.map(t => `${t.dataStr}|${t.importo}|${t.source}`)
+  );
 
   return rows.filter(r => {
-    const k     = makeKey(r);
-    const kFull = makeKeyFull(r);
-    // Duplicato se: stessa data+importo già su GS, O stessa data+importo già in pending
-    if (pendKeys.has(k)) return false;
-    // Per GS: duplicato solo se data+importo+inizio_descrizione coincidono
-    // oppure se ci sono già 3+ transazioni con stessa data+importo (evita falsi positivi)
-    if (gsKeysFull.has(kFull)) return false;
-    const sameDataImporto = allTx.filter(t => makeKey(t) === k);
-    if (sameDataImporto.length >= 3) return false; // già molte, probabile duplicato
-    return true;
+    const keySource = `${r.dataStr||r.data}|${r.importo}|${r.source}`;
+    const keyCsv    = `${r.dataStr||r.data}|${r.importo}|${norm(r.descrizione)}`;
+    // Già in pending?
+    if (pendKeys.has(keySource)) return false;
+    // Già su GS? (per API usa source, per CSV usa descrizione)
+    if (r.source === 'mediolanum' || r.source === 'postepay') {
+      return !gsKeysBySource.has(keySource);
+    }
+    return !gsKeysCsv.has(keyCsv);
   });
 }
+
 
 function mergeAndRefresh() {
   mergeAll();

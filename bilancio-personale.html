@@ -1228,90 +1228,120 @@ function renderTx() {
   const tb = document.getElementById('tx-body');
   tb.innerHTML = '';
 
-  // ── PENDING + NORMALI ORDINATE PER DATA ─────────────────────
-  const q   = (document.getElementById('tx-q')?.value || '').toLowerCase();
-  const src = document.getElementById('src-f')?.value  || '';
+  const q        = (document.getElementById('tx-q')?.value    || '').toLowerCase();
+  const src      = document.getElementById('src-f')?.value    || '';
+  const tipoF    = document.getElementById('tipo-f')?.value   || '';
+  const catF     = document.getElementById('cat-f')?.value    || '';
+  const cntF     = document.getElementById('cnt-f')?.value    || '';
   const dateFrom = document.getElementById('date-from')?.value || '';
-  const dateTo   = document.getElementById('date-to')?.value   || '';
+  const dateTo   = document.getElementById('date-to')?.value  || '';
 
-  const filteredPending = pendingTx.filter(p => {
-    if (src && p.source !== src) return false;
-    if (q && ![p.descrizione,p.tipologia,p.dataStr,p.conto,p.acquirente].some(v=>(v||'').toLowerCase().includes(q))) return false;
-    if (dateFrom && p.dataStr < dateFrom) return false;
-    if (dateTo   && p.dataStr > dateTo)   return false;
+  const matchFilter = r => {
+    if (src   && r.source    !== src)   return false;
+    if (tipoF && r.tipo      !== tipoF) return false;
+    if (catF  && r.tipologia !== catF)  return false;
+    if (cntF  && r.conto     !== cntF)  return false;
+    if (dateFrom && r.dataStr < dateFrom) return false;
+    if (dateTo   && r.dataStr > dateTo)   return false;
+    if (q && ![r.descrizione,r.tipologia,r.dataStr,r.conto,r.acquirente,r.budget,r.source||''].some(v=>(v||'').toLowerCase().includes(q))) return false;
     return true;
+  };
+
+  // Unisci pending filtrate + transazioni normali filtrate, ordina per data desc
+  const fp = pendingTx.filter(matchFilter);
+  const fn = filteredTx.filter(matchFilter);
+
+  // Merge ordinato per data desc
+  const allRows = [
+    ...fp.map(r => ({ ...r, _isPending: true  })),
+    ...fn.map(r => ({ ...r, _isPending: false }))
+  ].sort((a, b) => {
+    const da = a.data instanceof Date ? a.data : parseD(a.dataStr || a.data);
+    const db = b.data instanceof Date ? b.data : parseD(b.dataStr || b.data);
+    return (db || 0) - (da || 0);
   });
 
-  if (filteredPending.length > 0) {
+  if (!allRows.length) {
+    tb.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:36px">Nessuna transazione trovata</td></tr>`;
+    st('tx-info', '0 transazioni');
+    return;
+  }
+
+  // Header se ci sono pending
+  if (fp.length > 0) {
     const hdr = document.createElement('tr');
     hdr.innerHTML = `<td colspan="9" class="pending-header">
-      ⚠ ${filteredPending.length} nuove da approvare
-      <button class="btn sm" style="margin-left:auto;font-size:8px;padding:3px 10px" onclick="writeAllPending()">Scrivi tutte su GS</button>
+      ⚠ ${fp.length} nuove da approvare —
+      <button class="btn sm" style="font-size:8px;padding:3px 10px;margin-left:6px" onclick="writeAllPending()">Scrivi tutte su GS</button>
     </td>`;
     tb.appendChild(hdr);
+  }
 
-    // Ordina pending per data desc
-    const sortedPending = [...filteredPending].sort((a,b) => {
-      const da = parseD(a.dataStr||a.data), db = parseD(b.dataStr||b.data);
-      return (db||0) - (da||0);
-    });
+  // Paginazione sul totale merged
+  const total = allRows.length;
+  const start = (curPage - 1) * PAGE;
+  const page  = allRows.slice(start, start + PAGE);
 
-    sortedPending.forEach((p, pi) => {
-      const realIdx = pendingTx.indexOf(p);
-      const srcCls = 'src-'+(p.source||'csv');
-      const tr = document.createElement('tr');
+  page.forEach(r => {
+    const tr = document.createElement('tr');
+    const srcCls = 'src-' + (r.source || 'csv');
+
+    if (r._isPending) {
+      const realIdx = pendingTx.indexOf(pendingTx.find(p =>
+        p.dataStr === r.dataStr && p.importo === r.importo && p.descrizione === r.descrizione));
       tr.className = 'tx-pending';
       tr.id = 'pending-row-' + realIdx;
       tr.innerHTML = `
-        <td>${p.dataStr}</td>
-        <td title="${p.descrizione}" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${p.descrizione}</td>
-        <td>
-          <select class="inline-sel" id="p-tip-${realIdx}" onchange="updatePending(${realIdx},'tipologia',this.value)">
-            ${buildTipOptions(p.tipologia)}
-          </select>
-        </td>
-        <td>
-          <select class="inline-sel" id="p-cnt-${realIdx}" onchange="updatePending(${realIdx},'conto',this.value)">
-            <option value="ordinario" ${p.conto==='ordinario'?'selected':''}>Ordinario</option>
-            <option value="straordinario" ${p.conto==='straordinario'?'selected':''}>Straordinario</option>
-          </select>
-        </td>
-        <td><span class="src-tag ${srcCls}">${SRC_LABELS[p.source]||p.source||'—'}</span></td>
-        <td style="color:var(--muted2)">${p.budget||'—'}</td>
-        <td style="text-transform:capitalize;color:${p.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${p.tipo}</td>
-        <td style="text-align:right"><span class="${p.tipo==='entrata'?'ai':'ao'}">${p.tipo==='entrata'?'+':'−'} ${eur(Math.abs(p.importo))}</span></td>
+        <td><span class="badge-nuovo">NUOVO</span> ${r.dataStr}</td>
+        <td title="${r.descrizione}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${r.descrizione}</td>
+        <td><select class="inline-sel" id="p-tip-${realIdx}" onchange="updatePending(${realIdx},'tipologia',this.value)">${buildTipOptions(r.tipologia)}</select></td>
+        <td><select class="inline-sel" id="p-cnt-${realIdx}" onchange="updatePending(${realIdx},'conto',this.value)">
+          <option value="ordinario" ${r.conto==='ordinario'?'selected':''}>Ordinario</option>
+          <option value="straordinario" ${r.conto==='straordinario'?'selected':''}>Straordinario</option>
+        </select></td>
+        <td><span class="src-tag ${srcCls}">${SRC_LABELS[r.source]||r.source||'—'}</span></td>
+        <td style="color:var(--gold)">${r.budget||'—'}</td>
+        <td style="color:${r.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${r.tipo}</td>
+        <td style="text-align:right"><span class="${r.tipo==='entrata'?'ai':'ao'}">${r.tipo==='entrata'?'+':'−'} ${eur(Math.abs(r.importo))}</span></td>
         <td><button class="btn-scrivi" id="btn-scrivi-${realIdx}" onclick="writePending(${realIdx})">↑ Scrivi</button></td>
       `;
-      tb.appendChild(tr);
-    });
-
-    // Separatore
-    const sep = document.createElement('tr');
-    sep.innerHTML = `<td colspan="9" class="pending-sep">TRANSAZIONI REGISTRATE</td>`;
-    tb.appendChild(sep);
-  }
-
-  // ── SEZIONE NORMALE ──────────────────────────────────────────
-  const start = (curPage-1)*PAGE;
-  const rows  = filteredTx.slice(start, start+PAGE);
-  if (!rows.length && !filteredPending.length) {
-    tb.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:36px">Nessuna transazione trovata</td></tr>`;
-  } else {
-    rows.forEach(r => {
-      const tr = document.createElement('tr');
-      const srcCls = 'src-'+(r.source||'json');
+    } else {
+      const txIdx = allTx.indexOf(r._isPending === false ? allTx.find(t =>
+        t.dataStr === r.dataStr && t.importo === r.importo && t.descrizione === r.descrizione) : r);
       const contoVal = r.conto ? `<span class="badge">${r.conto}</span>` : '—';
-      const acquVal = r.acquirente || '—';
-      const txIdx = allTx.indexOf(r);
-      tr.innerHTML = `<td>${r.dataStr}</td><td title="${r.descrizione}">${r.descrizione}</td><td><span class="badge">${r.tipologia}</span></td><td>${contoVal}</td><td>${acquVal} <span class="src-tag ${srcCls}" style="margin-left:4px">${SRC_LABELS[r.source]||r.source||'—'}</span></td><td style="color:var(--muted2)">${r.budget||'—'}</td><td style="text-transform:capitalize;color:${r.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${r.tipo}</td><td style="text-align:right"><span class="${r.tipo==='entrata'?'ai':'ao'}">${r.tipo==='entrata'?'+':'−'} ${eur(Math.abs(r.importo))}</span></td><td><button class="btn ghost sm" style="padding:4px 8px;font-size:9px" onclick="openTxModal(${txIdx})">✎</button></td>`;
-      tb.appendChild(tr);
-    });
-  }
-  renderPag();
-  st('tx-info', filteredTx.length+' transazioni · '+pendingTx.length+' in attesa');
-  // Inizializza resize dopo render
+      tr.innerHTML = `
+        <td>${r.dataStr}</td>
+        <td title="${r.descrizione}">${r.descrizione}</td>
+        <td><span class="badge">${r.tipologia}</span></td>
+        <td>${contoVal}</td>
+        <td>${r.acquirente||'—'} <span class="src-tag ${srcCls}" style="margin-left:4px">${SRC_LABELS[r.source]||r.source||'—'}</span></td>
+        <td style="color:var(--muted2)">${r.budget||'—'}</td>
+        <td style="color:${r.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${r.tipo}</td>
+        <td style="text-align:right"><span class="${r.tipo==='entrata'?'ai':'ao'}">${r.tipo==='entrata'?'+':'−'} ${eur(Math.abs(r.importo))}</span></td>
+        <td><button class="btn ghost sm" style="padding:4px 8px;font-size:9px" onclick="openTxModal(${txIdx})">✎</button></td>
+      `;
+    }
+    tb.appendChild(tr);
+  });
+
+  renderPag2(total);
+  st('tx-info', fn.length + ' transazioni · ' + fp.length + ' in attesa');
   setTimeout(initColResize, 50);
 }
+
+function renderPag2(total) {
+  const tot = Math.ceil(total / PAGE);
+  const pag = document.getElementById('tx-pag'); if (!pag) return; pag.innerHTML = '';
+  if (tot <= 1) return;
+  const add = (l,p,on=false,dis=false) => { const b=document.createElement('button'); b.className='pg'+(on?' on':''); b.textContent=l; b.disabled=dis; if(!dis)b.onclick=()=>{curPage=p;renderTx();}; pag.appendChild(b); };
+  add('‹', curPage-1, false, curPage===1);
+  const s=Math.max(1,curPage-2), e=Math.min(tot,curPage+2);
+  if (s>1){add(1,1);if(s>2)add('…',curPage,false,true);}
+  for (let i=s;i<=e;i++) add(i,i,i===curPage);
+  if (e<tot){if(e<tot-1)add('…',curPage,false,true);add(tot,tot);}
+  add('›', curPage+1, false, curPage===tot);
+}
+
 
 // Costruisce le option per la tipologia con quella corrente selezionata
 function buildTipOptions(current) {
@@ -1807,13 +1837,30 @@ function clearPending() {
   savePending();
 }
 
-// Confronta nuove righe con quelle già su GS e restituisce solo le nuove
+// Confronta nuove righe con quelle già su GS
+// Chiave: data + importo (la descrizione può differire tra CSV e API)
+// Per evitare falsi negativi usiamo anche una chiave "morbida" data+importo
 function filterNew(rows) {
-  const gsKeys = new Set(allTx.map(t => `${t.dataStr||t.data}|${t.importo}|${t.descrizione}`));
-  const pendKeys = new Set(pendingTx.map(t => `${t.dataStr||t.data}|${t.importo}|${t.descrizione}`));
+  // Chiave primaria: data + importo + primi 30 chars descrizione (normalizzati)
+  const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,30);
+  const makeKey = t => `${t.dataStr||t.data}|${t.importo}`;
+  const makeKeyFull = t => `${t.dataStr||t.data}|${t.importo}|${norm(t.descrizione)}`;
+
+  const gsKeys     = new Set(allTx.map(makeKey));
+  const gsKeysFull = new Set(allTx.map(makeKeyFull));
+  const pendKeys   = new Set(pendingTx.map(makeKey));
+
   return rows.filter(r => {
-    const k = `${r.dataStr||r.data}|${r.importo}|${r.descrizione}`;
-    return !gsKeys.has(k) && !pendKeys.has(k);
+    const k     = makeKey(r);
+    const kFull = makeKeyFull(r);
+    // Duplicato se: stessa data+importo già su GS, O stessa data+importo già in pending
+    if (pendKeys.has(k)) return false;
+    // Per GS: duplicato solo se data+importo+inizio_descrizione coincidono
+    // oppure se ci sono già 3+ transazioni con stessa data+importo (evita falsi positivi)
+    if (gsKeysFull.has(kFull)) return false;
+    const sameDataImporto = allTx.filter(t => makeKey(t) === k);
+    if (sameDataImporto.length >= 3) return false; // già molte, probabile duplicato
+    return true;
   });
 }
 

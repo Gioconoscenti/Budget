@@ -222,6 +222,16 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     border-radius:5px;cursor:pointer;outline:none;max-width:130px;
   }
   select.inline-sel:focus { border-color:var(--gold); }
+
+  /* ── COLONNE RIDIMENSIONABILI ─────────────────────────────── */
+  #sec-transazioni table { table-layout:fixed; width:100%; }
+  #sec-transazioni th { position:relative; overflow:hidden; white-space:nowrap; }
+  .col-resizer {
+    position:absolute; right:0; top:0; width:5px; height:100%;
+    cursor:col-resize; user-select:none; z-index:10;
+    background:transparent;
+  }
+  .col-resizer:hover, .col-resizer.active { background:var(--acc); opacity:.5; }
 </style>
 </head>
 <body>
@@ -340,6 +350,9 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
             <option value="postepay">Postepay</option>
           </select>
           <input class="sbox" id="tx-q" type="text" placeholder="Cerca…" oninput="applyFilters()">
+          <input class="sbox" id="date-from" type="date" style="width:130px" oninput="applyFilters()" title="Da data">
+          <input class="sbox" id="date-to"   type="date" style="width:130px" oninput="applyFilters()" title="A data">
+          <button class="fb" onclick="clearDates()" style="padding:6px 10px;font-size:9px">✕ date</button>
         </div>
       </div>
       <div class="tbl-wrap">
@@ -590,7 +603,7 @@ wrangler deploy
 // ═══════════════════════════════════════════════════════════════
 //  STATO GLOBALE
 // ═══════════════════════════════════════════════════════════════
-const DATA_FILE = 'data.json', REFRESH = 10000, PAGE = 20;
+const PAGE = 20;
 const TITLES = {
   overview:'Panoramica', flussi:'Flussi', categorie:'Categorie',
   transazioni:'Transazioni', investimenti:'Investimenti',
@@ -695,24 +708,11 @@ async function gsCall(action, payload) {
 async function gsFetch(action, payload) {
   if (!GS_URL) throw new Error('URL Google Sheets non configurato');
 
-  // Azioni di scrittura → POST no-cors (evita limite URL e CORS preflight)
-  const WRITE_ACTIONS = new Set(['write','replace','saveSession','deleteSession','saveConfig','addLog','clearLog']);
-  
-  if (WRITE_ACTIONS.has(action)) {
-    // POST no-cors: la scrittura avviene ma non leggiamo la risposta
-    const body = JSON.stringify(Object.assign({ action }, payload || {}));
-    await fetch(GS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body,
-    });
-    return { ok: true };
-  }
-
-  // Azioni di lettura → GET normale
+  // Tutto via GET — Apps Script risponde con CORS corretto su GET
+  // Il payload va nell'URL; per righe singole è sempre < 2KB
   let url = GS_URL + '?action=' + encodeURIComponent(action);
   if (payload) url += '&payload=' + encodeURIComponent(JSON.stringify(payload));
+
   const res = await fetch(url, { redirect: 'follow' });
   if (!res.ok) throw new Error('GS HTTP ' + res.status);
   const text = await res.text();
@@ -887,32 +887,6 @@ function go(id, btn) {
 // ═══════════════════════════════════════════════════════════════
 //  CARICAMENTO data.json (fonte storica)
 // ═══════════════════════════════════════════════════════════════
-async function loadData() {
-  try {
-    const res = await fetch(DATA_FILE + '?t=' + Date.now());
-    if (!res.ok) return; // data.json opzionale — se assente, nessun errore
-    const lm = res.headers.get('last-modified');
-    if (lm === lastMod && allTx.length) return;
-    lastMod = lm;
-    const raw = await res.json();
-    const rows = raw.transazioni || (Array.isArray(raw) ? raw : []);
-    const jsonTx = rows.map(r => normalizeRow(r, 'json')).filter(r => r.data);
-    allInv = raw.investimenti || [];
-    mergeAll(jsonTx);
-    fillDrops();
-    applyFilters();
-    renderInv();
-    dot('green'); stamp('data.json ✓');
-    hide('loading'); show('app');
-  } catch (e) {
-    // Nessun data.json → lavoriamo solo con API/CSV
-    mergeAll([]);
-    fillDrops();
-    applyFilters();
-    dot('off'); stamp('Nessun data.json');
-    hide('loading'); show('app');
-  }
-}
 
 function normalizeRow(r, src) {
   let d = parseD(r.data);
@@ -944,21 +918,15 @@ function normalizeRow(r, src) {
   };
 }
 
-function mergeAll(jsonRows) {
-  // Dedup basato su data+importo+descrizione
+function mergeAll() {
   const seen = new Set();
   const dedup = (rows) => rows.filter(r => {
     const k = `${r.dataStr}|${r.importo}|${r.descrizione}`;
     if (seen.has(k)) return false;
     seen.add(k); return true;
   });
-  allTx = [
-    ...dedup(jsonRows),
-    ...dedup(apiTx.map(r => ({ ...r, data: parseD(r.data || r.dataStr), dataStr: fmtD(parseD(r.data || r.dataStr)) }))),
-    ...dedup(csvTx.map(r => ({ ...r, data: parseD(r.data || r.dataStr), dataStr: fmtD(parseD(r.data || r.dataStr)) })))
-  ].filter(r => r.data);
+  allTx = dedup(csvTx.map(r => ({ ...r, data: parseD(r.data || r.dataStr), dataStr: fmtD(parseD(r.data || r.dataStr)) }))).filter(r => r.data);
 }
-
 // ═══════════════════════════════════════════════════════════════
 //  UTILITY DATE / FORMAT
 // ═══════════════════════════════════════════════════════════════
@@ -1046,13 +1014,19 @@ function applyFilters() {
   const src  = document.getElementById('src-f')?.value  || '';
   const q    = (document.getElementById('tx-q')?.value  || '').toLowerCase();
 
+  const dateFrom = document.getElementById('date-from')?.value || '';
+  const dateTo   = document.getElementById('date-to')?.value   || '';
+
   filteredTx = allTx.filter(r => {
     const d = r.data;
+    if (!d || !(d instanceof Date) || isNaN(d)) return false;
     if (period === 'thismonth' && (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth())) return false;
     if (period === 'lastmonth') { const lm = new Date(now.getFullYear(), now.getMonth()-1, 1); if (d.getFullYear() !== lm.getFullYear() || d.getMonth() !== lm.getMonth()) return false; }
     if (period === 'thisyear' && d.getFullYear() !== now.getFullYear()) return false;
     if (yearF  && d.getFullYear() !== parseInt(yearF)) return false;
     if (monthF && d.getMonth()+1 !== parseInt(monthF)) return false;
+    if (dateFrom) { const df = parseD(dateFrom); if (df && d < df) return false; }
+    if (dateTo)   { const dt = parseD(dateTo);   if (dt && d > dt) return false; }
     if (contoG && r.conto !== contoG) return false;
     if (acquirenteG && r.acquirente !== acquirenteG) return false;
     if (sourceG && r.source !== sourceG) return false;
@@ -1060,7 +1034,7 @@ function applyFilters() {
     if (cat  && r.tipologia !== cat) return false;
     if (cnt  && r.conto !== cnt) return false;
     if (src  && r.source !== src) return false;
-    if (q && ![r.descrizione, r.tipologia, r.dataStr, r.conto, r.acquirente, r.budget, r.source].some(v => v.toLowerCase().includes(q))) return false;
+    if (q && ![r.descrizione, r.tipologia, r.dataStr, r.conto, r.acquirente, r.budget, r.source].some(v => (v||'').toLowerCase().includes(q))) return false;
     return true;
   });
 
@@ -1073,6 +1047,48 @@ function applyFilters() {
   curPage = 1;
   runSection();
 }
+// ── RESIZE COLONNE ───────────────────────────────────────────
+function initColResize() {
+  const table = document.querySelector('#sec-transazioni table');
+  if (!table) return;
+  const headers = table.querySelectorAll('th');
+  headers.forEach((th, i) => {
+    // Rimuovi resizer precedente
+    const old = th.querySelector('.col-resizer');
+    if (old) old.remove();
+    if (i === headers.length - 1) return; // ultima colonna no
+    const resizer = document.createElement('div');
+    resizer.className = 'col-resizer';
+    th.appendChild(resizer);
+    let startX, startW;
+    resizer.addEventListener('mousedown', e => {
+      startX = e.pageX;
+      startW = th.offsetWidth;
+      resizer.classList.add('active');
+      const onMove = ev => {
+        const w = Math.max(40, startW + ev.pageX - startX);
+        th.style.width = w + 'px';
+      };
+      const onUp = () => {
+        resizer.classList.remove('active');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+    });
+  });
+}
+
+function clearDates() {
+  const df = document.getElementById('date-from');
+  const dt = document.getElementById('date-to');
+  if (df) df.value = '';
+  if (dt) dt.value = '';
+  applyFilters();
+}
+
 function sortBy(f) { if (sortField === f) sortDir *= -1; else { sortField = f; sortDir = -1; } applyFilters(); }
 function runSection() {
   if (curSec === 'overview')     renderOverview();
@@ -1212,24 +1228,35 @@ function renderTx() {
   const tb = document.getElementById('tx-body');
   tb.innerHTML = '';
 
-  // ── SEZIONE PENDING ──────────────────────────────────────────
+  // ── PENDING + NORMALI ORDINATE PER DATA ─────────────────────
   const q   = (document.getElementById('tx-q')?.value || '').toLowerCase();
   const src = document.getElementById('src-f')?.value  || '';
+  const dateFrom = document.getElementById('date-from')?.value || '';
+  const dateTo   = document.getElementById('date-to')?.value   || '';
+
   const filteredPending = pendingTx.filter(p => {
     if (src && p.source !== src) return false;
     if (q && ![p.descrizione,p.tipologia,p.dataStr,p.conto,p.acquirente].some(v=>(v||'').toLowerCase().includes(q))) return false;
+    if (dateFrom && p.dataStr < dateFrom) return false;
+    if (dateTo   && p.dataStr > dateTo)   return false;
     return true;
   });
 
   if (filteredPending.length > 0) {
     const hdr = document.createElement('tr');
     hdr.innerHTML = `<td colspan="9" class="pending-header">
-      ⚠ ${filteredPending.length} transazioni nuove da approvare
+      ⚠ ${filteredPending.length} nuove da approvare
       <button class="btn sm" style="margin-left:auto;font-size:8px;padding:3px 10px" onclick="writeAllPending()">Scrivi tutte su GS</button>
     </td>`;
     tb.appendChild(hdr);
 
-    filteredPending.forEach((p, pi) => {
+    // Ordina pending per data desc
+    const sortedPending = [...filteredPending].sort((a,b) => {
+      const da = parseD(a.dataStr||a.data), db = parseD(b.dataStr||b.data);
+      return (db||0) - (da||0);
+    });
+
+    sortedPending.forEach((p, pi) => {
       const realIdx = pendingTx.indexOf(p);
       const srcCls = 'src-'+(p.source||'csv');
       const tr = document.createElement('tr');
@@ -1282,6 +1309,8 @@ function renderTx() {
   }
   renderPag();
   st('tx-info', filteredTx.length+' transazioni · '+pendingTx.length+' in attesa');
+  // Inizializza resize dopo render
+  setTimeout(initColResize, 50);
 }
 
 // Costruisce le option per la tipologia con quella corrente selezionata
@@ -1789,9 +1818,7 @@ function filterNew(rows) {
 }
 
 function mergeAndRefresh() {
-  // Ricarica senza perdere i dati json
-  const jsonRows = allTx.filter(r => r.source === 'json');
-  mergeAll(jsonRows);
+  mergeAll();
   fillDrops();
   applyFilters();
 }
@@ -1978,9 +2005,7 @@ async function init() {
   // 2) Carica da Google Sheets (transazioni + sessioni + config + log)
   await gsLoad();
 
-  // 3) Tenta caricamento data.json (opzionale — se assente non è un errore)
-  loadData();
-  setInterval(loadData, REFRESH);
+  // data.json non utilizzato
 
   // 4) Gestisci callback OAuth da Enable Banking
   handleOAuthCallback();

@@ -260,6 +260,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     <div class="nav-lbl">DATI</div>
     <button class="nav-btn" onclick="go('banche',this)" id="nav-banche"><span class="ico">🔗</span>Banche</button>
     <button class="nav-btn" onclick="go('importa',this)"><span class="ico">↓</span>Importa CSV</button>
+    <button class="nav-btn" onclick="go('regole',this)"><span class="ico">⚙</span>Regole</button>
   </div>
   <div class="nav-foot">
     <div class="status-pill"><div class="dot" id="status-dot"></div><span id="stxt">—</span></div>
@@ -286,7 +287,6 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       <select class="fb" id="g-acq-sel" onchange="setGlobal('acquirenteG',this.value)"><option value="">Tutti gli acquirenti</option></select>
       <select class="fb" id="g-src-sel" onchange="setGlobal('sourceG',this.value)">
         <option value="">Tutte le fonti</option>
-        <option value="json">📄 data.json</option>
         <option value="csv">📥 CSV importato</option>
         <option value="mediolanum">🏦 Mediolanum</option>
         <option value="postepay">📮 Postepay</option>
@@ -344,7 +344,6 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
           <select class="fb" id="cnt-f"  onchange="applyFilters()"><option value="">Tutti i conti</option></select>
           <select class="fb" id="src-f"  onchange="applyFilters()">
             <option value="">Tutte le fonti</option>
-            <option value="json">data.json</option>
             <option value="csv">CSV</option>
             <option value="mediolanum">Mediolanum</option>
             <option value="postepay">Postepay</option>
@@ -487,6 +486,39 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     </div>
   </div>
 
+  <!-- ── REGOLE ──────────────────────────────────────────────── -->
+  <div class="section" id="sec-regole">
+    <div class="g2">
+      <!-- Descrizione → Tipologia -->
+      <div class="card">
+        <div class="card-ttl">Descrizione → Tipologia</div>
+        <div class="card-sub">Keyword nella descrizione → categoria assegnata automaticamente</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input class="sbox" id="new-kw" placeholder="Keyword (es: ESSELUNGA)" style="flex:1">
+          <select class="fb" id="new-kw-tip" style="min-width:160px">${buildTipOptionsStatic()}</select>
+          <button class="btn sm" onclick="addKwRule()">+ Aggiungi</button>
+        </div>
+        <input class="sbox" id="kw-search" placeholder="Cerca…" oninput="renderKwRules()" style="width:100%;margin-bottom:10px">
+        <div style="max-height:420px;overflow-y:auto" id="kw-rules-list"></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px" id="kw-count"></div>
+      </div>
+      <!-- Tipologia → Budget -->
+      <div class="card">
+        <div class="card-ttl">Tipologia → Budget</div>
+        <div class="card-sub">Categoria → Budget assegnato automaticamente</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <select class="fb" id="new-bud-tip" style="flex:1">${buildTipOptionsStatic()}</select>
+          <select class="fb" id="new-bud-val" style="min-width:130px">
+            <option value="Necessità">Necessità</option>
+            <option value="Tempo libero">Tempo libero</option>
+          </select>
+          <button class="btn sm" onclick="addBudRule()">+ Aggiungi</button>
+        </div>
+        <div style="max-height:420px;overflow-y:auto" id="bud-rules-list"></div>
+      </div>
+    </div>
+  </div>
+
 </main>
 </div>
 
@@ -607,9 +639,9 @@ const PAGE = 20;
 const TITLES = {
   overview:'Panoramica', flussi:'Flussi', categorie:'Categorie',
   transazioni:'Transazioni', investimenti:'Investimenti',
-  banche:'Connessioni Bancarie', importa:'Importa CSV'
+  banche:'Connessioni Bancarie', importa:'Importa CSV', regole:'Regole Categorizzazione'
 };
-const HIDE_TOPBAR = new Set(['banche','importa']);
+const HIDE_TOPBAR = new Set(['banche','importa','regole']);
 
 let allTx = [], allInv = [], filteredTx = [];
 let apiTx  = [];   // caricati da Google Sheets
@@ -630,22 +662,169 @@ let syncLog      = [];
 // Logica: match esatto prima, poi match parziale per sottostringa, infine fallback
 const CSV_RULES = {"ACCREDITO CASHBACK SCONTIPOSTE ACCREDITO CASHBACK SCONTIPOSTE":"Interessi","ACCREDITO VOSTRO FAVORE VERSAMENTO":"Interessi","BONIFICO A VS. FAVORE AGENZIA ENTRATE":"Interessi","BONIFICO A VS. FAVORE ENTERPRISE COSTRUZIONI":"Interessi","ACQUISTO IMMOBILE":"Regali","DISPOSIZIONE VS. FAVORE MAZZOLA CINZIA":"Interessi","INTERESSI NETTI SU VINCOLO":"Interessi","RIMBORSO":"Interessi","RIMBORSO TITOLI SCADUTI":"Interessi","RIMBORSO VINCOLO N. OPER. 2024/001 SCADENZA 27/09/2024":"Interessi","ACCREDITO BONIFICO SEPA SEE DA INPS-IT-ROMA-VIA CIRO IL GRANDE":"Lavoro","ASSEGNO UNICO":"Lavoro","BONIFICO A VS. FAVORE DA INPS":"Lavoro","BONIFICO A VS. FAVORE INPS":"Lavoro","DA INPS-IT-ROMA-VIA CIRO IL GRANDE 21":"Lavoro","ACCREDITO BONIFICO SEPA SEE DA M.ECONOMIA E FINANZE":"Stipendio","ACCREDITO BONIFICO SEPA SEE DA MINISTERO DELL'ISTRUZIONE E DEL MERITO":"Stipendio","DA ISTITUTO COMPRENSIVO PARMA CENTRO":"Stipendio","DA M.ECONOMIA E FINANZE DSII":"Stipendio","EMOLUMENTI":"Stipendio","TRASFERIMENTO P2P":"Pasti","VERSAMENTO DI CONTANTE MOONEY":"Varie","BONIFICO A VS. FAVORE CONSAP CONCESSIONARIA":"Regali","BONIFICO A VS. FAVORE DA CONOSCENTI ANNA":"Regali","BONIFICO A VS. FAVORE DA CONOSCENTI GIOACCHINO":"Regali","BONIFICO A VS. FAVORE DA CONOSCENTI SARA":"Regali","BONIFICO A VS. FAVORE DA DI PIETRO SERGIO":"Regali","BONIFICO A VS. FAVORE DA MEDIOLI FRANCESCO":"Regali","BONIFICO A VS. FAVORE DA RE GIUSEPPINA RITA":"Regali","BONIFICO A VS. FAVORE DILIBERTI GIUSEPPE":"Regali","BONIFICO A VS. FAVORE ELECTROLUX":"Regali","BONIFICO A VS. FAVORE FORESTIERE ALESSANDRA":"Regali","BONIFICO A VS. FAVORE FRANCAVIGLIA ADRIANO":"Regali","BONIFICO - SEPA ISTANTANEO":"Regali","BONIFICO - SEPA ISTANTANEO A VS FAVORE MAURO GIOVANNI":"Regali","BONIFICO - SEPA ISTANTANEO CONOSCENTI GIOACCHINO":"Regali","BONIFICO - SEPA ISTANTANEO CONOSCENTI PIETRO, AGLIERI RINELLA ROSA":"Regali","BONIFICO A MIO MARITO":"Regali","DISPOSIZIONE VS. FAVORE CONOSCENTI PIETRO":"Regali","BONIFICO A VS. FAVORE ASIF CHIMELLI":"Interessi","BONIFICO A VS. FAVORE PAYPAL":"Interessi","BONIFICO A VS. FAVORE DA ENEL ENERGIA":"Interessi","RICARICA EFFETTUATA DA GIUSEPPINA RITA RE":"Regali","ACCREDITO DISPOSIZIONE POSTAGIRO":"Regali","RICARICA PRESSO ESERCENTE":"Altro","DA CENTRO STUDI G. PARINI SOCIETA' COOPERAT":"Stipendio","PER BONIFICO A MIA MOGLIE":"Regali","RICARICA EFFETTUATA DA ALESSANDRA MARIA FORESTIERE":"Altro","PLAFOND PER ABILITAZIONE":"Formazione","CRV*MIRO' PARMA SRL":"Altro","RICARICA EFFETTUATA DA ANNA CONOSCENTI":"Regali","PER ACQUISTO IMMOBILE":"Regali","CEDOLE":"Interessi","T.F.R.":"Stipendio","EUROSIA":"Alimenti","BONIFICO SEPA DA MINISTERO DELL'ISTRUZIONE E DEL MERITO":"Stipendio","BONIFICO SEPA DA INPS":"Lavoro","MAKANAN RISTORANTE":"Regali","LUCIA SILVANA RE":"Regali","ACCREDITO BONIFICO SEPA SEE":"Lavoro","585Q7418605630 RAPPORTI INTERNI SPORTELLO 00702":"Banca - Mutuo","ACER PARMA":"Casa - Manutenzione","ACERO":"Pasti","ACQUOLINA IN TORTA":"Pasti","ACQUISTO CASA":"Banca - Mutuo","ADD. DELEGA INTERNET":"Bollette - Internet","ADDEBITO DISPOSIZIONE BONIFICO SEPA DA APP BANCOPOSTA ADDEBITO BONIFICO EA23061646410341480513899999IT PER FATTURA 56.23":"Bollette - Altro","ADDEBITO DISPOSIZIONE BONIFICO SEPA DA WEB A M MAGOSSO LUCA OU MME":"Shopping - Altro","ADDEBITO DISPOSIZIONE BONIFICO SEPA DA WEB ADDEBITO BONIFICO EA23083127895383480513899999IT PER ALESSANDRA MARIA FORESTIERE-LA METODOLOGIA CLIL PER LA DIDATTICA DELLE DISCIPLINE NON LINGUISTICHE IN LINGUA STRANIERA PERF275 (TASSA+BOLLO)":"Formazione","ADDEBITO PER RICARICA CARTA DA APP RICARICA POSTEPAY":"Banca - Commissioni","ADDEBITO VS. ASSEGNO ABI 03062 CAB 34210":"Casa - Altro","ADMIRAL":"Assicurazione","ADS TRIGNO OVEST MONTENERO":"Pasti","AEROPORTO":"Viaggi","AGRIFARNESE SOCIETA'":"Pasti","AL RISPARMIO CALZATURE":"Shopping - Abbigliamento","ALCHEMIST":"Pasti","ALL'ANTICO VINAIO":"Pasti","ALPIN S.R.L.":"Automobile - Manutenzione","AMMINISTRATORE":"Casa - Manutenzione","ANCESCHI":"Pasti","ANGELICO":"Shopping - Abbigliamento","ANYTIME":"Personale - Sport","AREA DI SERVIZIO":"Pasti","ARTE E GUSTO":"Pasti","ARTE RELIGIOSA SRL":"Varie","ASD DILETTANTI S.POLO":"Personale - Sport","ASIF":"Formazione","ASPIT":"Divertimenti","ATAC":"Viaggi","ATAC SPA":"Viaggi","ATLANTIC":"Pasti","ATM":"Viaggi","AUTOGRILL":"Pasti","AUTOLINEE TOSCANE":"Viaggi","AUTOZATTI":"Automobile - Leasing","B&B":"Viaggi","BABY SERVICE":"Shopping - Abbigliamento","BABY SHOPPING":"Shopping - Abbigliamento","BAR":"Pasti","BAR OSCAR":"Pasti","BEAUTY & CLEAN":"Personale - Cosmetici","BEBA STORE":"Casa - Arredamento","BERNAZZOLI S.N.C.":"Varie","BERTOLINI ROSSANA":"Shopping - Abbigliamento","BETTO E MARY":"Pasti","BI & GI SNC":"Shopping - Altro","BIBA'S":"Pasti","BOLLETTINI POSTALI BOLLETTINO 896":"Tasse","BONIFICO - SEPA ISTANTANEO C.P. DE JAGER":"Varie","BONIFICO - SEPA ISTANTANEO PIETRO":"Varie","BONIFICO DA TERZE PARTI PISP IREN SPA":"Bollette - Elettricità","BONIFICO PERMANENTE A FAV. CONOSCENTI GIOACCHINO":"Banca - Mutuo","BRICOCENTER":"Casa - Manutenzione","BRICOMAN":"Shopping - Elettronica","BRIO BAZAR":"Shopping - Altro","CAFFE'":"Pasti","CALZEDONIA":"Shopping - Abbigliamento","CANEPA ROSALIA CARINI":"Automobile - Parcheggio","CANONE ANNUO ANTICIPATO POSTEPAY":"Tasse","CANONE ANNUO CONTESTUALE A VENDITA":"Tasse","CAREBO":"Automobile - Manutenzione","CARTA DI CREDITO":"Banca - Carta di credito","CASA PASCUCCI":"Divertimenti","CASEIFICIO":"Pasti","CENTRO MEDICO":"Personale - Medicinali","CHIOSCO DELLE ROSE":"Pasti","CIACCO PARMA":"Pasti","CIORE":"Pasti","CIRA MAURIZIO":"Pasti","CISALFA":"Shopping - Abbigliamento","CITTA DEL SOLE":"Shopping - Altro","CITTADELLA":"Pasti","CLAYTON":"Shopping - Abbigliamento","COIN":"Shopping - Abbigliamento","COMET SPA":"Casa - Altro","COMITATO EMILIA-ROMAGN":"Varie","COMM.EMISSIONE/RICARICA CARTA":"Banca - Commissioni","COMM.RICARICA PREPAGATA":"Banca - Commissioni","COMMISSIONE":"Banca - Commissioni","COMMISSIONE DISPOSIZIONE BONIFICO SEPA":"Banca - Commissioni","COMMISSIONE EMISSIONE":"Banca - Commissioni","COMMISSIONI":"Banca - Commissioni","COMPASS":"Bollette - Altro","COMUNE DI FOLIGNO":"Varie","CONAD":"Alimenti","CONDOMINIO":"Casa - Manutenzione","CONBIPEL":"Shopping - Abbigliamento","COOP":"Alimenti","COOP SOCIALE BADANTI E COLF":"Casa - Manutenzione","COPACABANA":"Pasti","CORDARO SRL":"Shopping - Altro","COSTANTIN SPA":"Automobile - Benzina","CRAI":"Alimenti","CRAI PARMA":"Alimenti","CRONOS BOLOGNA":"Divertimenti","DA CONOSCENTI GIOACCHINO, FORESTIERE ALESSA":"Shopping - Altro","DA FORESTIERE SANTO":"Shopping - Altro","DAFNE MIDULLA PARMA":"Personale - Medicinali","DAFNE SRL":"Automobile - Parcheggio","DAMAT":"Pasti","DEMOS VERONA":"Pasti","DISTRIBUTORE":"Automobile - Benzina","DISTRIBUTORE IP":"Automobile - Benzina","DISTRIBUTORE SELF":"Automobile - Benzina","DIVERTILANDIA":"Divertimenti","DOLOMITI":"Bollette - Elettricità","DOTT.SSA DONAT":"Personale - Medicinali","DOUGLAS":"Shopping - Altro","DRAGONE":"Pasti","DU' CAFE'":"Pasti","DUZU TOTO":"Pasti","ELEONORA ZAMPI":"Varie","EMPORIO ITALIA":"Casa - Arredamento","ENEL ENERGIA":"Bollette - Elettricità","ENERG.IT S.P.A.":"Bollette - Elettricità","ENERGY VOLLEY":"Personale - Sport","ENI":"Automobile - Benzina","ESSELUNGA":"Alimenti","ESSO":"Automobile - Benzina","EUROSPIN":"Alimenti","F.LLI FIASCONARO":"Pasti","F24":"Tasse","FARMACIA":"Personale - Medicinali","FASTPAY":"Automobile - Parcheggio","FASTWEB":"Bollette - Internet","FELTRINELLI":"Shopping - Libri","FERRAMENTA ARCO":"Casa - Altro","FINLIBRI":"Shopping - Altro","FIORI DI CAMPO":"Shopping - Altro","FIRENZE S.M.N.":"Viaggi","FLACCOVIO":"Shopping - Libri","FOOD":"Pasti","FORUM 2":"Shopping - Abbigliamento","FOTO ELITE":"Shopping - Altro","GABBAN FRANCO":"Personale - Capelli","GARDALAND":"Divertimenti","GELATERIA":"Pasti","GEST":"Viaggi","GEST SPA":"Pasti","GIACOMAZZI SRL":"Automobile - Manutenzione","GIOCHI SRL":"Shopping - Altro","GIOVANELLI AUTORIPARAZ":"Automobile - Manutenzione","GIUNTI AL PUNTO":"Shopping - Libri","GLOBO":"Shopping - Abbigliamento","GRUPPO ARGENTA":"Pasti","GRUPPO LIDIA TOGNI":"Divertimenti","GUESS ITALIA":"Shopping - Abbigliamento","GUSTAVO":"Pasti","HAIR STUDIO":"Personale - Capelli","HAMBURGER":"Pasti","HAPPY CASA":"Casa - Arredamento","HFB ECO":"Casa - Arredamento","HM":"Shopping - Abbigliamento","HOLDING DEI GIOCHI":"Shopping - Altro","HOTEL COSTA VERDE":"Viaggi","HUGO BOSS":"Shopping - Abbigliamento","I SAPORI DELL TRADIZI":"Pasti","I SOSPIRI DEL CAMPOFELICE":"Pasti","ICILIO ROSSINI":"Casa - Affitto","IDEXE'":"Shopping - Abbigliamento","IGINIO MASSAR":"Pasti","IL SOLE & LA L ROMA":"Viaggi","IL TRIBUNALE PARMA":"Pasti","IMPOSTA":"Tasse","INTERSPAR":"Alimenti","INTIMISSIMI":"Shopping - Abbigliamento","IPER CENTRO TORRI":"Alimenti","IPER EUROSIA":"Alimenti","SF8Y404000000005506098":"Bollette - Elettricità","IREN S P A":"Bollette - Acqua","IRENPAY":"Bollette - Rifiuti","IREN MERCATO":"Bollette - Elettricità","ITALIA ATM":"Varie","ITINERE SERV.RIST DUBLIN IRL":"Pasti","ITINERE SERV.RIST FREC":"Pasti","JUST EAT":"Pasti","JUSTEATITALY":"Pasti","KASANOVA":"Casa - Altro","KAYI 2 SRL":"Pasti","KIABI":"Shopping - Abbigliamento","KING TECH":"Shopping - Elettronica","LA DROGHERIA":"Pasti","LA DUCHESSA DI PARMA":"Pasti","LA MAISON DU GOURMET":"Pasti","LA RINASCENTE":"Pasti","LA TAGLIATA":"Pasti","LA TAVERNA":"Pasti","LA VELA PARMA":"Pasti","LE BUONE VOGLIE MUGGIA":"Pasti","LE CHICCHE":"Shopping - Abbigliamento","LIANG":"Pasti","LIDL":"Alimenti","LIDO AZZURRO":"Pasti","LIU JO":"Shopping - Abbigliamento","LIU.JO":"Shopping - Abbigliamento","LIS PAY PRESSO MANISC CAMPOFELICE":"Shopping - Altro","LOAN SRL":"Varie","LOVABLE CC":"Shopping - Abbigliamento","LUX EVENTI SRL ROMA":"Divertimenti","MACELLERIA LO PICCOLO":"Alimenti","MAGAZZINI REGINA":"Casa - Altro","MAGRITTE DRINK":"Pasti","MAKE UP ARTIST":"Personale - Capelli","MANGO":"Shopping - Abbigliamento","MANIFATTURA FIRENZE":"Shopping - Abbigliamento","MARA MEO":"Pasti","MARGHERITA PARMA":"Shopping - Abbigliamento","MASO":"Alimenti","MATO SRL":"Casa - Altro","MATTIAZZI S.PROSPERO":"Varie","MAVILIGIO'":"Shopping - Abbigliamento","MC DONALD":"Pasti","MEDI SALUSER":"Personale - Medicinali","MEDIAWORLD":"Shopping - Elettronica","MEDIOLANUM VITA":"Assicurazione","MERCATO CENTRALE":"Pasti","MERIDA":"Varie","MIRO'":"Personale - Medicinali","MOBY ALE":"Viaggi","MOSTO SAS":"Pasti","MUTUO":"Banca - Mutuo","NAIL LAB SRL":"Personale - Cosmetici","NAVIGARE S.R.L.":"Shopping - Abbigliamento","NEW PIZZA":"Pasti","NUNA RETAIL":"Shopping - Abbigliamento","NUOVO S ORSOLA":"Personale - Medicinali","OFFICINA AUTO SPORT":"Automobile - Manutenzione","OLD WILD WEST":"Pasti","ORANO":"Pasti","ORIGINAL MARINES":"Shopping - Abbigliamento","ORTO DI ECCHER":"Alimenti","ORTO SUL COLLE":"Divertimenti","OSPEDAL":"Personale - Medicinali","OSTERIA":"Pasti","OSTERIA CIPOLLA":"Pasti","OTTICA VISION":"Shopping - Altro","OVS":"Shopping - Abbigliamento","PAGAMENTO PAGA CON POSTEPAY":"Varie","PAGAMENTO UTENZA PAGAMENTI SU RETE":"Tasse","PAGAMENTO UTENZA TELEFONICA":"Bollette - Internet","PALAZZO MASSAINI SAS":"Pasti","PANE":"Alimenti","PANIFICIO":"Pasti","PANZEROTTERIA":"Pasti","PAOLA ECCEL":"Casa - Affitto","PARANZA":"Pasti","PARCHEGGI":"Automobile - Parcheggio","PARCHEGGIO":"Automobile - Parcheggio","PARK":"Automobile - Parcheggio","PARMA FOOD":"Pasti","PARMA PARMA":"Varie","PARMA TORRI":"Shopping - Abbigliamento","PARRUCCHIERIA GIOVANN":"Personale - Capelli","PASTICCERIA":"Pasti","PAYPAL":"Famiglia","PECOFARM DI SALVATORE":"Personale - Medicinali","PELLEGRINI":"Pasti","PENNYBLACK":"Shopping - Abbigliamento","PEPCO":"Shopping - Abbigliamento","PEPEROSA":"Shopping - Abbigliamento","PEPPERINO":"Pasti","PERSONALCAR":"Automobile - Manutenzione","PETROLI":"Automobile - Benzina","PG CAFE'":"Pasti","PIAZZA ITALIA":"Shopping - Abbigliamento","PICCOLE COCCOLE":"Personale - Cosmetici","PINALLI PROFUMERIE":"Personale - Cosmetici","PIRANHA SRL":"Pasti","PITTARELLO":"Shopping - Abbigliamento","PIZZA":"Pasti","PIZZERIA":"Pasti","PIZZIKOTTO":"Pasti","POLI":"Alimenti","PORCOBRADO":"Pasti","POSTEPAY-PAGOPA":"Varie","PRELIEVO DI CONTANTE":"Varie","PRELIEVI PAESI UE":"Varie","PRENATAL":"Shopping - Abbigliamento","PRESTO SERVICE C/O":"Casa - Altro","PRIMARK":"Shopping - Abbigliamento","PRIMIGI STORE":"Shopping - Abbigliamento","PROFILI":"Personale - Capelli","PULISYSTEM":"Casa - Altro","PUNZO ANNA":"Personale - Medicinali","PVH ITALIA SRL":"Shopping - Abbigliamento","RICARICA CARTA":"Varie","RICARICA POSTEPAY":"Varie","RICARICA TELEFONO":"Bollette - Internet","RICARICA/RIMBORSO":"Varie","RICARICA/RIMBORSO CARTA/E PREPAGATA/E":"Varie","RINASCIMENTO":"Shopping - Abbigliamento","RISPARMIO CASA":"Shopping - Altro","RIST PIZZ":"Pasti","RIST. PIZZ.":"Pasti","RISTORANTE":"Pasti","RL FASHIONS OF EUROPE":"Shopping - Altro","ROADHOUSE":"Pasti","ROSSI PROFUMI SPA":"Personale - Cosmetici","ROSSOMAGENTA":"Casa - Arredamento","RUDY ROSSI PARMA":"Personale - Medicinali","RYANAIR":"Viaggi","SALUMERIA":"Pasti","SEGIT":"Automobile - Benzina","SERVIZI E DUCATIVI":"Formazione","SESSANTA BPM":"Shopping - Libri","SFERRINO PIETRO":"Shopping - Abbigliamento","SHAKIROVSKI":"Casa - Manutenzione","SHELL":"Automobile - Benzina","SOTTOSCRIZIONE TITOLI":"Banca - Titoli","SPAKE'":"Pasti","SPESE GESTIONE":"Tasse","SPLASH DOWN":"Shopping - Abbigliamento","STAZIONE DI SERVIZIO":"Automobile - Benzina","STAZIONE":"Automobile - Benzina","STELLA' Z PARMA":"Shopping - Altro","STELLANTIS":"Automobile - Leasing","STRADA BURLA":"Shopping - Altro","STROILI ORO":"Shopping - Altro","STUDIO DOTT SS TERMINI IMERE":"Personale - Medicinali","STUDIO OTTICO":"Shopping - Altro","SUPERMERCATI":"Alimenti","SUPERMERCATO":"Alimenti","SUPERSTORE":"Alimenti","SUSHIKO":"Pasti","TABACCHERIA":"Shopping - Altro","TAM.CO. SRL":"Shopping - Altro","TAMOIL":"Automobile - Benzina","TASS SORBOLO":"Shopping - Altro","TAVERNA":"Pasti","TAVOLE SUL NAVIGLIO SR FAENZA":"Pasti","TEDI COMMERCIO":"Casa - Altro","TELEPASS":"Automobile - Parcheggio","TENJI SRLS":"Pasti","TENNISTAVOLO":"Personale - Sport","TEP SPA":"Viaggi","THE CUPS DI MICHELE CO":"Pasti","THE SPACE CINEMA":"Divertimenti","TIGOTA":"Casa - Manutenzione","TOP FOTO":"Shopping - Altro","TRASFERIMENTO DI CONTANTI MOONEY":"Shopping - Altro","TRATTORIA":"Pasti","TRAVELLER'S WORLD DUT.":"Viaggi","TRENITALIA":"Viaggi","U121":"Varie","UPIM":"Shopping - Altro","VECCHIA PERGINE":"Pasti","VERO STORE":"Casa - Altro","VICOMERO":"Alimenti","VILLA COSTANZA":"Automobile - Parcheggio","VILLA DI SAN MARTINO":"Divertimenti","VINCOLO N.":"Banca - Titoli","VOSTRA DISPOSIZIONE A FAV. ALESSANDRA FORESTIERE":"Shopping - Altro","VOSTRA DISPOSIZIONE A FAV. AMNU":"Bollette - Rifiuti","VOSTRA DISPOSIZIONE A FAV. ANNA CONOSCENTI":"Varie","VOSTRA DISPOSIZIONE A FAV. AUTOZATTI SRL BONIFICO DISPOSTO IN: INTERNET COOR.BENEF.: IT73 Y020 0805 3640 0000 2926 110 BANCA DESTINATARIA: 02008/05364-UNCRITMMORR DATA ORDINE: 30/09/24 DATA REGOLAMENTO: 01/10/24 CRO: 0000028614440703483421034210IT NOTE: PANDA FORESTIERE ALESSANDRA":"Automobile - Altro","VOSTRA DISPOSIZIONE A FAV. CITTA FUTURA":"Formazione","VOSTRA DISPOSIZIONE A FAV. CONOSCENTI GIOACCHINO":"Varie","VOSTRA DISPOSIZIONE A FAV. DA.MA.":"Casa - Arredamento","VOSTRA DISPOSIZIONE A FAV. DECALACQUE":"Bollette - Altro","VOSTRA DISPOSIZIONE A FAV. DOMENICA FORESTIERE":"Varie","VOSTRA DISPOSIZIONE A FAV. DOMENICO DIFIGOLA":"Varie","VOSTRA DISPOSIZIONE A FAV. GIUSEPPE AMATORE":"Shopping - Altro","VOSTRA DISPOSIZIONE A FAV. GIUSEPPE DILIBERTI":"Varie","VOSTRA DISPOSIZIONE A FAV. HANSAROSE":"Varie","VOSTRA DISPOSIZIONE A FAV. LIBRETTO SMART":"Varie","VOSTRA DISPOSIZIONE A FAV. LIEN VIAGGI":"Viaggi","VOSTRA DISPOSIZIONE A FAV. MARIA ILARIA BRUNETTI":"Shopping - Altro","VOSTRA DISPOSIZIONE A FAV. PATRIK BONAFEDE":"Casa - Manutenzione","VOSTRA DISPOSIZIONE A FAV. ROSSELLA CRISANTI":"Varie","VOSTRA DISPOSIZIONE A FAV. ROVENA HAJDINI":"Varie","VOSTRA DISPOSIZIONE A FAV. SARA CONOSCENTI":"Varie","VOSTRA DISPOSIZIONE A FAV. STILE REALE":"Casa - Affitto","VOSTRA DISPOSIZIONE COMUNE DI PARMA - SERVIZI EDUCATIVI":"Formazione","VOSTRA DISPOSIZIONE COMUNE DI PARMA SANZIONI":"Tasse","VOSTRA DISPOSIZIONE CORTESI CLAUDIA E LO NERO GIANLUCA":"Shopping - Altro","VOSTRA DISPOSIZIONE MATEDO S.N.C.":"Formazione","VOSTRA DISPOSIZIONE NOTAIO ENRICHETTA COMPAGNONE":"Tasse","VOSTRA DISPOSIZIONE PIETRO CONOSCENTI BONIFICO":"Shopping - Altro","VOSTRA DISPOSIZIONE WOOD&MARI":"Casa - Manutenzione","WIND-TRE":"Bollette - Internet","WWW.IKEA.COM":"Casa - Arredamento","WWW.IRENYOU.IT":"Bollette - Rifiuti","YAMAMAY":"Shopping - Abbigliamento","ZANELLATO TOMAS MORGAN":"Shopping - Altro","ZARA":"Shopping - Abbigliamento","ZUIKI":"Shopping - Abbigliamento","MCC 4111":"Viaggi","MCC 4121":"Viaggi","MCC 4131":"Viaggi","MCC 4722":"Viaggi","MCC 4789":"Viaggi","MCC 4900":"Bollette - Elettricità","MCC 5192":"Shopping - Libri","MCC 5411":"Alimenti","MCC 5441":"Pasti","MCC 5462":"Pasti","MCC 5499":"Pasti","MCC 5541":"Pasti","MCC 5542":"Automobile - Benzina","MCC 5621":"Shopping - Abbigliamento","MCC 5651":"Shopping - Abbigliamento","MCC 5691":"Shopping - Abbigliamento","MCC 5698":"Personale - Capelli","MCC 5719":"Casa - Manutenzione","MCC 5812":"Pasti","MCC 5813":"Pasti","MCC 5814":"Pasti","MCC 5912":"Shopping - Abbigliamento","MCC 5941":"Shopping - Abbigliamento","MCC 5943":"Shopping - Altro","MCC 5945":"Shopping - Altro","MCC 5946":"Shopping - Altro","MCC 5999":"Alimenti","MCC 6300":"Assicurazione","MCC 7011":"Viaggi","MCC 7210":"Casa - Altro","MCC 7221":"Shopping - Altro","MCC 7230":"Personale - Capelli","MCC 7311":"Pasti","MCC 7512":"Automobile - Manutenzione","MCC 7523":"Automobile - Parcheggio","MCC 7542":"Automobile - Manutenzione","MCC 7699":"Casa - Altro","MCC 7941":"Shopping - Abbigliamento","MCC 7966":"Viaggi","MCC 7999":"Divertimenti","MCC 8011":"Personale - Medicinali","MCC 8062":"Personale - Medicinali","MCC 8299":"Formazione","MCC 8398":"Divertimenti","MCC 9399":"Tasse","DECATHLON":"Shopping - Abbigliamento","ALFA 3000 RAVENNA":"Viaggi","BASILICA DI S.APOLLINA RAVENNA":"Viaggi","PAGOPA":"Formazione","AMAZON":"Shopping - Altro","COLOSSEUM":"Personale - Medicinali","ORSOLA":"Personale - Medicinali","BACCANALE":"Shopping - Abbigliamento","AGRITURISMO":"Pasti","CITTA? DEL SOLE":"Shopping - Altro","BOMBE'":"Pasti","ANNA PUNZO":"Personale - Medicinali","RAVENNA":"Viaggi","IRIS MOBILI":"Casa - Arredamento","BURGERMEETER":"Pasti","MIRABILANDIA":"Viaggi","AZIMUT CASSA":"Automobile - Parcheggio","GRELU":"Shopping - Abbigliamento","TERRAZZANO":"Pasti","HARNOLD' S DI FANZINI":"Shopping - Abbigliamento","AVVISO PAGOPA":"Tasse","QR PAGA CON POSTEPAY":"Varie","VINCITORE DI FATTA":"Pasti","THE SHIPPING CENTRE":"Shopping - Altro","PUB 55":"Pasti","TENTAZIONI DI GIRASIA":"Shopping - Abbigliamento","LIDO AZZUR":"Pasti","PALMAR RIST INT":"Pasti","SPESA FELICE":"Alimenti","KREION LAB":"Regali","CALLIOPE":"Shopping - Abbigliamento","CANONE CARTA ANNUALE":"Tasse","TALCO":"Shopping - Abbigliamento","WHITE":"Shopping - Abbigliamento","MEDITERRANEA GIOIELLI":"Shopping - Altro","GIOCHERIA DI D'ALIA":"Shopping - Altro","FORESTIERE":"Regali","LA VELA":"Pasti","GIADA FONTANA":"Shopping - Abbigliamento","TIZIANA BRANCATI":"Personale - Medicinali","EMILIA CREMERIA":"Pasti","CAFFE COMMERCIO":"Pasti","IDO PARMA":"Shopping - Abbigliamento","GOLDENPOINT":"Shopping - Abbigliamento","INNOVATION TIME":"Shopping - Abbigliamento","CENTRO TORRI":"Shopping - Abbigliamento","CINEMA":"Divertimenti","DAR PARUCCA":"Personale - Capelli","ROMA":"Shopping - Abbigliamento","PRIMA ASSICURAZIONI":"Assicurazione","LA GOLOSA":"Pasti","ABBIATEGRASSO":"Shopping - Abbigliamento","BO6027":"Shopping - Abbigliamento","P2P A RE   GIUSEPPINA RITA":"Regali","NOR":"Shopping - Abbigliamento","PITTAROSSO":"Shopping - Abbigliamento"};
 
+// ── GESTIONE REGOLE UTENTE ───────────────────────────────────
+// Le regole utente sono sovrapposizioni a CSV_RULES e BUDGET_MAP
+// Salvate in localStorage per persistenza locale
+
+// Regole utente separate per expense e income
+let userExpRules = JSON.parse(localStorage.getItem('bp_exp_rules') || 'null') || {...EXPENSE_RULES};
+let userIncRules = JSON.parse(localStorage.getItem('bp_inc_rules') || 'null') || {...INCOME_RULES};
+let userBudRules = JSON.parse(localStorage.getItem('bp_bud_rules') || 'null') || {...BUDGET_MAP};
+
+function saveExpRules() { localStorage.setItem('bp_exp_rules', JSON.stringify(userExpRules)); gsCall('saveRules',{tipo:'expense',rules:userExpRules}).catch(()=>{}); }
+function saveIncRules() { localStorage.setItem('bp_inc_rules', JSON.stringify(userIncRules)); gsCall('saveRules',{tipo:'income',rules:userIncRules}).catch(()=>{}); }
+function saveBudRules() { localStorage.setItem('bp_bud_rules', JSON.stringify(userBudRules)); gsCall('saveBudRules',{rules:userBudRules}).catch(()=>{}); }
+
+// Sostituzione di autoCateg e getBudget con versioni che usano le regole utente
 function autoCateg(desc, importo) {
   if (!desc) return importo >= 0 ? 'Altro' : 'Varie';
-  const upper = desc.toUpperCase().trim();
+  const upper   = desc.toUpperCase().trim();
+  const isInc   = importo >= 0;
+  // Usa le regole giuste in base al segno dell'importo
+  const primary = isInc ? userIncRules : userExpRules;
+  const fallback= isInc ? userExpRules : userIncRules;
 
-  // 1) Match esatto
-  if (CSV_RULES[upper]) return CSV_RULES[upper];
+  // 1) Match esatto nelle regole primarie
+  if (primary[upper])  return primary[upper];
+  // 2) Match esatto nelle regole fallback
+  if (fallback[upper]) return fallback[upper];
+  // 3) Match parziale primario (dalla keyword più lunga)
+  const pkKeys = Object.keys(primary).sort((a,b) => b.length - a.length);
+  for (const kw of pkKeys) { if (upper.includes(kw)) return primary[kw]; }
+  // 4) Match parziale fallback
+  const fbKeys = Object.keys(fallback).sort((a,b) => b.length - a.length);
+  for (const kw of fbKeys) { if (upper.includes(kw)) return fallback[kw]; }
 
-  // 2) Match parziale: cerca se la desc contiene una keyword (ordine da più lunga a più corta)
-  const keys = Object.keys(CSV_RULES).sort((a,b) => b.length - a.length);
-  for (const kw of keys) {
-    if (upper.includes(kw)) return CSV_RULES[kw];
-  }
-
-  // 3) Fallback in base al segno dell'importo
-  return importo >= 0 ? 'Altro' : 'Varie';
+  return isInc ? 'Altro' : 'Varie';
 }
+
+
+// ── UI REGOLE ────────────────────────────────────────────────
+function buildTipOptionsStatic(current) {
+  const tips = ['Alimenti','Assicurazione','Automobile - Benzina','Automobile - Leasing',
+    'Automobile - Manutenzione','Automobile - Parcheggio','Automobile - Altro',
+    'Banca - Carta di credito','Banca - Commissioni','Banca - Mutuo','Banca - Titoli',
+    'Bollette - Acqua','Bollette - Altro','Bollette - Elettricità','Bollette - Gas',
+    'Bollette - Internet','Bollette - Rifiuti','Casa - Affitto','Casa - Altro',
+    'Casa - Arredamento','Casa - Manutenzione','Divertimenti','Famiglia','Formazione',
+    'Interessi','Lavoro','Pasti','Personale - Capelli','Personale - Cosmetici',
+    'Personale - Medicinali','Personale - Sport','Regali','Shopping - Abbigliamento',
+    'Shopping - Altro','Shopping - Elettronica','Shopping - Libri','Stipendio',
+    'Tasse','Varie','Viaggi','Altro'];
+  return tips.map(t => `<option value="${t}" ${t===current?'selected':''}>${t}</option>`).join('');
+}
+
+let kwTab = 'expense';
+
+function setKwTab(tab) {
+  kwTab = tab;
+  const btnExp = document.getElementById('tab-exp');
+  const btnInc = document.getElementById('tab-inc');
+  if (btnExp) { btnExp.className = tab==='expense'?'btn sm':'btn ghost sm'; btnExp.style.background=tab==='expense'?'var(--red)':''; }
+  if (btnInc) { btnInc.className = tab==='income'?'btn sm':'btn ghost sm'; btnInc.style.background=tab==='income'?'var(--acc2)':''; btnInc.style.color=tab==='income'?'#07080f':''; }
+  renderKwRules();
+}
+
+function renderKwRules() {
+  ['new-kw-tip','new-bud-tip'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel && !sel.innerHTML.trim()) sel.innerHTML = buildTipOptionsStatic();
+  });
+  const rules = kwTab === 'income' ? userIncRules : userExpRules;
+  const q = (document.getElementById('kw-search')?.value || '').toUpperCase();
+  const entries = Object.entries(rules)
+    .filter(([k,v]) => !q || k.includes(q) || v.toUpperCase().includes(q))
+    .sort((a,b) => a[0].localeCompare(b[0]));
+  document.getElementById('kw-count').textContent = entries.length + ' regole ' + (kwTab==='income'?'entrate':'uscite');
+  document.getElementById('kw-rules-list').innerHTML = entries.map(([kw, tip]) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid var(--border);font-size:10px">
+      <span style="flex:1;color:var(--text);font-family:'Space Mono',monospace">${kw}</span>
+      <select class="inline-sel" style="max-width:170px" onchange="editKwRule('${kw.replace(/'/g,"\'")}',this.value)">${buildTipOptionsStatic(tip)}</select>
+      <button class="btn danger sm" style="padding:3px 8px;font-size:9px" onclick="deleteKwRule('${kw.replace(/'/g,"\'")}')">✕</button>
+    </div>`).join('');
+}
+
+function addKwRule() {
+  const kw  = (document.getElementById('new-kw')?.value || '').toUpperCase().trim();
+  const tip = document.getElementById('new-kw-tip')?.value;
+  if (!kw || !tip) return;
+  if (kwTab === 'income') { userIncRules[kw] = tip; saveIncRules(); }
+  else                    { userExpRules[kw] = tip; saveExpRules(); }
+  document.getElementById('new-kw').value = '';
+  renderKwRules();
+  toast('✓ Regola aggiunta', 'ok');
+}
+
+function editKwRule(kw, tip) {
+  if (kwTab === 'income') { userIncRules[kw] = tip; saveIncRules(); }
+  else                    { userExpRules[kw] = tip; saveExpRules(); }
+}
+
+function deleteKwRule(kw) {
+  if (kwTab === 'income') { delete userIncRules[kw]; saveIncRules(); }
+  else                    { delete userExpRules[kw]; saveExpRules(); }
+  renderKwRules();
+}
+
+
+function renderBudRules() {
+  document.getElementById('bud-rules-list').innerHTML = Object.entries(userBudRules)
+    .sort((a,b) => a[0].localeCompare(b[0]))
+    .map(([tip, bud]) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid var(--border);font-size:10px">
+      <span style="flex:1;color:var(--text)">${tip}</span>
+      <select class="inline-sel" style="max-width:130px" onchange="editBudRule('${tip}',this.value)">
+        <option value="Necessità" ${bud==='Necessità'?'selected':''}>Necessità</option>
+        <option value="Tempo libero" ${bud==='Tempo libero'?'selected':''}>Tempo libero</option>
+        <option value="" ${!bud?'selected':''}>—</option>
+      </select>
+      <button class="btn danger sm" style="padding:3px 8px;font-size:9px" onclick="deleteBudRule('${tip}')">✕</button>
+    </div>`).join('');
+}
+
+function addKwRule() {
+  const kw  = (document.getElementById('new-kw')?.value || '').toUpperCase().trim();
+  const tip = document.getElementById('new-kw-tip')?.value;
+  if (!kw || !tip) return;
+  userKwRules[kw] = tip;
+  saveKwRules();
+  document.getElementById('new-kw').value = '';
+  renderKwRules();
+  toast('✓ Regola aggiunta', 'ok');
+}
+
+function editKwRule(kw, tip) {
+  userKwRules[kw] = tip;
+  saveKwRules();
+}
+
+function deleteKwRule(kw) {
+  delete userKwRules[kw];
+  saveKwRules();
+  renderKwRules();
+}
+
+function addBudRule() {
+  const tip = document.getElementById('new-bud-tip')?.value;
+  const bud = document.getElementById('new-bud-val')?.value;
+  if (!tip) return;
+  userBudRules[tip] = bud;
+  saveBudRules();
+  renderBudRules();
+  toast('✓ Regola aggiunta', 'ok');
+}
+
+function editBudRule(tip, bud) {
+  userBudRules[tip] = bud;
+  saveBudRules();
+}
+
+function deleteBudRule(tip) {
+  delete userBudRules[tip];
+  saveBudRules();
+  renderBudRules();
+}
+
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -757,7 +936,15 @@ async function gsLoad() {
 
     syncLog = (logData.entries || []).map(e => ({ time: e.time, msg: e.msg }));
 
-    dot('green'); stamp('GS sync OK · ' + rows.length + ' tx');
+    // Carica regole da GS
+    try {
+      const [rulesData, budData] = await Promise.all([gsCall('getRules'), gsCall('getBudRules')]);
+      if (rulesData.expense && Object.keys(rulesData.expense).length) { userExpRules = rulesData.expense; localStorage.setItem('bp_exp_rules', JSON.stringify(userExpRules)); }
+      if (rulesData.income  && Object.keys(rulesData.income).length)  { userIncRules = rulesData.income;  localStorage.setItem('bp_inc_rules', JSON.stringify(userIncRules)); }
+      if (budData.rules     && Object.keys(budData.rules).length)      { userBudRules = budData.rules;     localStorage.setItem('bp_bud_rules', JSON.stringify(userBudRules)); }
+    } catch(e) { console.warn('Regole GS non caricate:', e); }
+
+    dot('green'); stamp('GS sync OK · ' + rows.length + ' tx' + (pendingTx.length ? ' · ' + pendingTx.length + ' in attesa' : ''));
     mergeAndRefresh();
     if (curSec === 'banche') renderBanks();
   } catch(e) {
@@ -782,7 +969,7 @@ function gsRowToInternal(r) {
     descrizione: r['Descrizione']  || '',
     tipologia:   r['Tipologia']    || '',
     importo:     imp, tipo,
-    conto:       r['Conto']        || '',
+    conto:       (r['Conto']||'').toLowerCase() || '',
     acquirente:  r['Acquirente']   || '',
     budget:      r['Budget']       || '',
     source:      r['Fonte']        || 'csv',
@@ -973,7 +1160,7 @@ function fillDrops() {
   cf.innerHTML = '<option value="">Tutte le tipologie</option>';
   cats.forEach(c => { const o = new Option(c, c); if (c === ccf) o.selected = true; cf.add(o); });
 
-  const conti = [...new Set(allTx.map(r => r.conto).filter(Boolean))].sort();
+  const conti = [...new Set(allTx.map(r => (r.conto||'').toLowerCase()).filter(Boolean))].sort();
   const cof = document.getElementById('cnt-f'), ccof = cof.value;
   cof.innerHTML = '<option value="">Tutti i conti</option>';
   conti.forEach(c => { const o = new Option(c, c); if (c === ccof) o.selected = true; cof.add(o); });
@@ -1361,7 +1548,7 @@ function buildTipOptions(current) {
 // Aggiorna un campo della riga pending e aggiorna il budget
 function updatePending(idx, field, value) {
   if (!pendingTx[idx]) return;
-  pendingTx[idx][field] = value;
+  pendingTx[idx][field] = (field === 'conto') ? value.toLowerCase() : value;
   if (field === 'tipologia') pendingTx[idx].budget = getBudget(value, '');
   savePending();
   // Aggiorna il badge budget nella riga
@@ -1565,7 +1752,7 @@ async function syncBank(bankId) {
           descrizione: t.description, tipologia,
           importo: t.amount,
           tipo: t.amount >= 0 ? 'entrata' : 'uscita',
-          conto: contoSel,
+          conto: (contoSel||'ordinario').toLowerCase(),
           acquirente: ACQUIRENTE_MAP[bankId] || '',
           budget: getBudget(tipologia, ''),
           source: bankId, _pending: true

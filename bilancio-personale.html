@@ -189,6 +189,39 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
   .csv-cfg{grid-template-columns:1fr;}
   main{padding:20px 14px;}
 }
+
+  /* ── RIGHE IN ATTESA DI APPROVAZIONE ─────────────────────── */
+  .tx-pending { background: rgba(245,183,49,.06) !important; }
+  .tx-pending:hover { background: rgba(245,183,49,.1) !important; }
+  .badge-nuovo {
+    display:inline-flex;align-items:center;gap:4px;
+    background:rgba(245,183,49,.15);border:1px solid rgba(245,183,49,.4);
+    color:var(--gold);font-size:8px;letter-spacing:.8px;padding:2px 7px;border-radius:4px;
+    font-weight:700;text-transform:uppercase;
+  }
+  .btn-scrivi {
+    background:var(--acc2);border:none;color:#07080f;
+    font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.5px;
+    padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .15s;white-space:nowrap;
+  }
+  .btn-scrivi:hover { opacity:.85; }
+  .btn-scrivi:disabled { background:var(--border2);color:var(--muted);cursor:not-allowed;opacity:1; }
+  .pending-header {
+    display:flex;align-items:center;gap:10px;padding:10px 14px;
+    background:rgba(245,183,49,.05);border-bottom:1px solid rgba(245,183,49,.2);
+    font-size:10px;color:var(--gold);letter-spacing:.5px;
+  }
+  .pending-sep {
+    padding:8px 14px;background:var(--s2);font-size:9px;
+    color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;
+    border-bottom:1px solid var(--border);
+  }
+  select.inline-sel {
+    background:var(--s2);border:1px solid var(--border2);color:var(--text);
+    font-family:'Space Mono',monospace;font-size:9px;padding:3px 6px;
+    border-radius:5px;cursor:pointer;outline:none;max-width:130px;
+  }
+  select.inline-sel:focus { border-color:var(--gold); }
 </style>
 </head>
 <body>
@@ -320,6 +353,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
             <th onclick="sortBy('budget')">BUDGET ↕</th>
             <th onclick="sortBy('tipo')">TIPO ↕</th>
             <th onclick="sortBy('importo')" style="text-align:right">IMPORTO ↕</th>
+            <th></th>
           </tr></thead>
           <tbody id="tx-body"></tbody>
         </table>
@@ -482,6 +516,73 @@ wrangler deploy
   </div>
 </div>
 
+<!-- ── MODAL MODIFICA TRANSAZIONE ───────────────────────────── -->
+<div class="modal-bg" id="modal-tx" onclick="closeModalBg(event,'modal-tx')">
+  <div class="modal">
+    <div class="modal-ttl">Modifica transazione <button class="modal-close" onclick="closeModal('modal-tx')">✕</button></div>
+    <div id="modal-tx-info" style="font-size:11px;color:var(--muted2);background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-bottom:14px;line-height:1.8"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="inp-grp">
+        <label class="form-label">Conto</label>
+        <select class="form-input" id="modal-tx-conto">
+          <option value="ordinario">Ordinario</option>
+          <option value="straordinario">Straordinario</option>
+        </select>
+      </div>
+      <div class="inp-grp">
+        <label class="form-label">Tipologia</label>
+        <select class="form-input" id="modal-tx-tipologia">
+          <option value="Alimenti">Alimenti</option>
+          <option value="Assicurazione">Assicurazione</option>
+          <option value="Automobile - Benzina">Automobile - Benzina</option>
+          <option value="Automobile - Leasing">Automobile - Leasing</option>
+          <option value="Automobile - Manutenzione">Automobile - Manutenzione</option>
+          <option value="Automobile - Parcheggio">Automobile - Parcheggio</option>
+          <option value="Automobile - Altro">Automobile - Altro</option>
+          <option value="Banca - Carta di credito">Banca - Carta di credito</option>
+          <option value="Banca - Commissioni">Banca - Commissioni</option>
+          <option value="Banca - Mutuo">Banca - Mutuo</option>
+          <option value="Banca - Titoli">Banca - Titoli</option>
+          <option value="Bollette - Acqua">Bollette - Acqua</option>
+          <option value="Bollette - Altro">Bollette - Altro</option>
+          <option value="Bollette - Elettricità">Bollette - Elettricità</option>
+          <option value="Bollette - Gas">Bollette - Gas</option>
+          <option value="Bollette - Internet">Bollette - Internet</option>
+          <option value="Bollette - Rifiuti">Bollette - Rifiuti</option>
+          <option value="Casa - Affitto">Casa - Affitto</option>
+          <option value="Casa - Altro">Casa - Altro</option>
+          <option value="Casa - Arredamento">Casa - Arredamento</option>
+          <option value="Casa - Manutenzione">Casa - Manutenzione</option>
+          <option value="Divertimenti">Divertimenti</option>
+          <option value="Famiglia">Famiglia</option>
+          <option value="Formazione">Formazione</option>
+          <option value="Interessi">Interessi</option>
+          <option value="Lavoro">Lavoro</option>
+          <option value="Pasti">Pasti</option>
+          <option value="Personale - Capelli">Personale - Capelli</option>
+          <option value="Personale - Cosmetici">Personale - Cosmetici</option>
+          <option value="Personale - Medicinali">Personale - Medicinali</option>
+          <option value="Personale - Sport">Personale - Sport</option>
+          <option value="Regali">Regali</option>
+          <option value="Shopping - Abbigliamento">Shopping - Abbigliamento</option>
+          <option value="Shopping - Altro">Shopping - Altro</option>
+          <option value="Shopping - Elettronica">Shopping - Elettronica</option>
+          <option value="Shopping - Libri">Shopping - Libri</option>
+          <option value="Stipendio">Stipendio</option>
+          <option value="Tasse">Tasse</option>
+          <option value="Varie">Varie</option>
+          <option value="Viaggi">Viaggi</option>
+          <option value="Altro">Altro</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+      <button class="btn ghost sm" onclick="closeModal('modal-tx')">Annulla</button>
+      <button class="btn sm" onclick="saveTxModal()">Salva</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── TOAST ──────────────────────────────────────────────────── -->
 <div id="toast"></div>
 
@@ -500,6 +601,7 @@ const HIDE_TOPBAR = new Set(['banche','importa']);
 let allTx = [], allInv = [], filteredTx = [];
 let apiTx  = [];   // caricati da Google Sheets
 let csvTx  = [];   // caricati da Google Sheets
+let pendingTx = JSON.parse(localStorage.getItem('bp_pending') || '[]'); // nuove da approvare
 
 let curSec = 'overview', period = 'all', yearF = '', monthF = '';
 let contoG = '', acquirenteG = '', sourceG = '';
@@ -1107,24 +1209,153 @@ function renderCategorie() {
 const SRC_LABELS = {json:'data.json', csv:'CSV', mediolanum:'🏦 Mediolanum', postepay:'📮 Postepay', bancoposta:'📮 BancoPoste'};
 
 function renderTx() {
-  const start = (curPage-1)*PAGE;
-  const rows  = filteredTx.slice(start, start+PAGE);
   const tb = document.getElementById('tx-body');
   tb.innerHTML = '';
-  if (!rows.length) {
-    tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:36px">Nessuna transazione trovata</td></tr>`;
+
+  // ── SEZIONE PENDING ──────────────────────────────────────────
+  const q   = (document.getElementById('tx-q')?.value || '').toLowerCase();
+  const src = document.getElementById('src-f')?.value  || '';
+  const filteredPending = pendingTx.filter(p => {
+    if (src && p.source !== src) return false;
+    if (q && ![p.descrizione,p.tipologia,p.dataStr,p.conto,p.acquirente].some(v=>(v||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  if (filteredPending.length > 0) {
+    const hdr = document.createElement('tr');
+    hdr.innerHTML = `<td colspan="9" class="pending-header">
+      ⚠ ${filteredPending.length} transazioni nuove da approvare
+      <button class="btn sm" style="margin-left:auto;font-size:8px;padding:3px 10px" onclick="writeAllPending()">Scrivi tutte su GS</button>
+    </td>`;
+    tb.appendChild(hdr);
+
+    filteredPending.forEach((p, pi) => {
+      const realIdx = pendingTx.indexOf(p);
+      const srcCls = 'src-'+(p.source||'csv');
+      const tr = document.createElement('tr');
+      tr.className = 'tx-pending';
+      tr.id = 'pending-row-' + realIdx;
+      tr.innerHTML = `
+        <td>${p.dataStr}</td>
+        <td title="${p.descrizione}" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${p.descrizione}</td>
+        <td>
+          <select class="inline-sel" id="p-tip-${realIdx}" onchange="updatePending(${realIdx},'tipologia',this.value)">
+            ${buildTipOptions(p.tipologia)}
+          </select>
+        </td>
+        <td>
+          <select class="inline-sel" id="p-cnt-${realIdx}" onchange="updatePending(${realIdx},'conto',this.value)">
+            <option value="ordinario" ${p.conto==='ordinario'?'selected':''}>Ordinario</option>
+            <option value="straordinario" ${p.conto==='straordinario'?'selected':''}>Straordinario</option>
+          </select>
+        </td>
+        <td><span class="src-tag ${srcCls}">${SRC_LABELS[p.source]||p.source||'—'}</span></td>
+        <td style="color:var(--muted2)">${p.budget||'—'}</td>
+        <td style="text-transform:capitalize;color:${p.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${p.tipo}</td>
+        <td style="text-align:right"><span class="${p.tipo==='entrata'?'ai':'ao'}">${p.tipo==='entrata'?'+':'−'} ${eur(Math.abs(p.importo))}</span></td>
+        <td><button class="btn-scrivi" id="btn-scrivi-${realIdx}" onclick="writePending(${realIdx})">↑ Scrivi</button></td>
+      `;
+      tb.appendChild(tr);
+    });
+
+    // Separatore
+    const sep = document.createElement('tr');
+    sep.innerHTML = `<td colspan="9" class="pending-sep">TRANSAZIONI REGISTRATE</td>`;
+    tb.appendChild(sep);
+  }
+
+  // ── SEZIONE NORMALE ──────────────────────────────────────────
+  const start = (curPage-1)*PAGE;
+  const rows  = filteredTx.slice(start, start+PAGE);
+  if (!rows.length && !filteredPending.length) {
+    tb.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:36px">Nessuna transazione trovata</td></tr>`;
   } else {
     rows.forEach(r => {
       const tr = document.createElement('tr');
       const srcCls = 'src-'+(r.source||'json');
       const contoVal = r.conto ? `<span class="badge">${r.conto}</span>` : '—';
       const acquVal = r.acquirente || '—';
-      tr.innerHTML = `<td>${r.dataStr}</td><td title="${r.descrizione}">${r.descrizione}</td><td><span class="badge">${r.tipologia}</span></td><td>${contoVal}</td><td>${acquVal} <span class="src-tag ${srcCls}" style="margin-left:4px">${SRC_LABELS[r.source]||r.source||'—'}</span></td><td style="color:var(--muted2)">${r.budget||'—'}</td><td style="text-transform:capitalize;color:${r.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${r.tipo}</td><td style="text-align:right"><span class="${r.tipo==='entrata'?'ai':'ao'}">${r.tipo==='entrata'?'+':'−'} ${eur(Math.abs(r.importo))}</span></td>`;
+      const txIdx = allTx.indexOf(r);
+      tr.innerHTML = `<td>${r.dataStr}</td><td title="${r.descrizione}">${r.descrizione}</td><td><span class="badge">${r.tipologia}</span></td><td>${contoVal}</td><td>${acquVal} <span class="src-tag ${srcCls}" style="margin-left:4px">${SRC_LABELS[r.source]||r.source||'—'}</span></td><td style="color:var(--muted2)">${r.budget||'—'}</td><td style="text-transform:capitalize;color:${r.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${r.tipo}</td><td style="text-align:right"><span class="${r.tipo==='entrata'?'ai':'ao'}">${r.tipo==='entrata'?'+':'−'} ${eur(Math.abs(r.importo))}</span></td><td><button class="btn ghost sm" style="padding:4px 8px;font-size:9px" onclick="openTxModal(${txIdx})">✎</button></td>`;
       tb.appendChild(tr);
     });
   }
   renderPag();
-  st('tx-info', filteredTx.length+' transazioni totali');
+  st('tx-info', filteredTx.length+' transazioni · '+pendingTx.length+' in attesa');
+}
+
+// Costruisce le option per la tipologia con quella corrente selezionata
+function buildTipOptions(current) {
+  const tips = ['Alimenti','Assicurazione','Automobile - Benzina','Automobile - Leasing',
+    'Automobile - Manutenzione','Automobile - Parcheggio','Automobile - Altro',
+    'Banca - Carta di credito','Banca - Commissioni','Banca - Mutuo','Banca - Titoli',
+    'Bollette - Acqua','Bollette - Altro','Bollette - Elettricità','Bollette - Gas',
+    'Bollette - Internet','Bollette - Rifiuti','Casa - Affitto','Casa - Altro',
+    'Casa - Arredamento','Casa - Manutenzione','Divertimenti','Famiglia','Formazione',
+    'Interessi','Lavoro','Pasti','Personale - Capelli','Personale - Cosmetici',
+    'Personale - Medicinali','Personale - Sport','Regali','Shopping - Abbigliamento',
+    'Shopping - Altro','Shopping - Elettronica','Shopping - Libri','Stipendio',
+    'Tasse','Varie','Viaggi','Altro'];
+  return tips.map(t => `<option value="${t}" ${t===current?'selected':''}>${t}</option>`).join('');
+}
+
+// Aggiorna un campo della riga pending e aggiorna il budget
+function updatePending(idx, field, value) {
+  if (!pendingTx[idx]) return;
+  pendingTx[idx][field] = value;
+  if (field === 'tipologia') pendingTx[idx].budget = getBudget(value, '');
+  savePending();
+  // Aggiorna il badge budget nella riga
+  const row = document.getElementById('pending-row-' + idx);
+  if (row) {
+    const budgetCell = row.cells[5];
+    if (budgetCell) budgetCell.textContent = pendingTx[idx].budget || '—';
+  }
+}
+
+// Scrive una singola riga pending su GS
+async function writePending(idx) {
+  if (!pendingTx[idx]) return;
+  const btn = document.getElementById('btn-scrivi-' + idx);
+  if (btn) { btn.disabled = true; btn.textContent = '↑ ...'; }
+  try {
+    const row = toGsRow(pendingTx[idx]);
+    await gsFetch('write', { rows: [row] });
+    // Sposta da pending ad allTx/csvTx
+    const t = { ...pendingTx[idx], _pending: false, data: parseD(pendingTx[idx].dataStr || pendingTx[idx].data) };
+    allTx.push(t);
+    csvTx.push(t);
+    pendingTx.splice(idx, 1);
+    savePending();
+    if (btn) { btn.disabled = true; btn.textContent = '✓ Scritto'; btn.style.background='var(--border2)'; btn.style.color='var(--muted)'; }
+    setTimeout(() => renderTx(), 800);
+    toast('✓ Transazione scritta su GS', 'ok');
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '↑ Scrivi'; }
+    toast('Errore: ' + e.message, 'ko');
+  }
+}
+
+// Scrive tutte le pending su GS
+async function writeAllPending() {
+  if (!pendingTx.length) return;
+  toast(`↑ Scrittura ${pendingTx.length} transazioni...`, 'info');
+  const toWrite = [...pendingTx];
+  let written = 0;
+  for (const p of toWrite) {
+    try {
+      await gsFetch('write', { rows: [toGsRow(p)] });
+      const t = { ...p, _pending: false, data: parseD(p.dataStr || p.data) };
+      allTx.push(t);
+      csvTx.push(t);
+      written++;
+    } catch(e) { console.warn('Errore scrittura:', e); }
+  }
+  pendingTx = pendingTx.slice(written);
+  savePending();
+  toast(`✓ ${written} transazioni scritte su GS`, 'ok');
+  renderTx();
+  runSection();
 }
 
 function renderPag() {
@@ -1221,7 +1452,11 @@ function renderBanks() {
           ${sess.accounts?.length||0} conto/i · sessione attiva<br>
           Ultimo sync: ${sess.lastSync || 'mai'}
         </div>
-        <div class="bank-actions">
+        <div class="bank-actions" style="align-items:center">
+          <select class="fb sm" id="conto-${id}" style="font-size:9px;padding:6px 10px;border-radius:7px">
+            <option value="ordinario">Ordinario</option>
+            <option value="straordinario">Straordinario</option>
+          </select>
           <button class="btn sm" onclick="syncBank('${id}')" id="btn-sync-${id}">↻ Sincronizza</button>
           <button class="btn ghost sm" onclick="disconnectBank('${id}')">✕ Disconnetti</button>
         </div>` : `
@@ -1263,42 +1498,33 @@ async function syncBank(bankId) {
       const res = await fetch(`${workerUrl}/transactions?account=${accountId}&from=${nDaysAgo(90)}`);
       if (!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
-      const existing = new Set(apiTx.map(t => `${t.dataStr||t.data}|${t.importo}|${t.descrizione}`));
-      (data.transactions || []).forEach(t => {
-        const key = `${t.date}|${t.amount}|${t.description}`;
-        if (!existing.has(key)) {
-          const tipologia = autoCateg(t.description, t.amount);
-          apiTx.push({
-            data: t.date, dataStr: fmtD(parseD(t.date)),
-            descrizione: t.description,
-            tipologia,
-            importo: t.amount,
-            tipo: t.amount >= 0 ? 'entrata' : 'uscita',
-            conto: '',
-            acquirente: ACQUIRENTE_MAP[bankId] || '',
-            budget: getBudget(tipologia, ''),
-            source: bankId
-          });
-          added++;
-        }
+      const contoSel = document.getElementById('conto-' + bankId)?.value || 'ordinario';
+      const candidates = (data.transactions || []).map(t => {
+        const tipologia = autoCateg(t.description, t.amount);
+        return {
+          data: t.date, dataStr: fmtD(parseD(t.date)),
+          descrizione: t.description, tipologia,
+          importo: t.amount,
+          tipo: t.amount >= 0 ? 'entrata' : 'uscita',
+          conto: contoSel,
+          acquirente: ACQUIRENTE_MAP[bankId] || '',
+          budget: getBudget(tipologia, ''),
+          source: bankId, _pending: true
+        };
       });
+      const nuove = filterNew(candidates);
+      nuove.forEach(r => pendingTx.push(r));
+      added = nuove.length;
     }
     // Aggiorna last sync
     sess.lastSync = new Date().toLocaleString('it-IT');
-    // Salva sessione aggiornata su GS
+    // Salva sessione su GS
     const updatedSess = activeSessions.find(s => s.bankId === bankId);
     if (updatedSess) await gsSaveSession(updatedSess);
-    // Salva nuove transazioni su GS
-    if (added > 0) await gsSaveTransactions(apiTx.slice(-added));
-    logSync(`${BANKS[bankId].name}: +${added} transazioni`);
-    toast(`✓ ${BANKS[bankId].name}: +${added} movimenti`, 'ok');
-    // Salva su Google Sheets
-    if (added > 0) {
-      const nuove = apiTx.slice(-added);
-      gsSaveTransactions(nuove).then(r => {
-        if (r && r.added) toast(`✓ ${r.added} righe salvate su GS`, 'ok');
-      }).catch(e => toast('Errore GS: ' + e.message, 'ko'));
-    }
+    // Pending: salva in localStorage, non su GS
+    if (added > 0) savePending();
+    logSync(`${BANKS[bankId].name}: +${added} nuove transazioni in attesa`);
+    toast(`✓ ${BANKS[bankId].name}: ${added} nuove transazioni da approvare`, 'ok');
     mergeAndRefresh();
   } catch(e) {
     logSync(`${BANKS[bankId].name}: errore — ${e.message}`);
@@ -1508,7 +1734,7 @@ function parseCSV(file) {
 
       const key = `${dateStr}|${amount}|${desc}`;
       if (!existing.has(key)) {
-        csvTx.push({
+        const newRow = {
           data: dateStr,
           dataStr: fmtD(parseD(dateStr)),
           descrizione: desc,
@@ -1518,21 +1744,48 @@ function parseCSV(file) {
           conto,
           acquirente,
           budget,
-          source: src
-        });
+          source: src,
+          _pending: true
+        };
+        // Aggiunge alle pending solo se non già su GS
+        const gsKeys2 = new Set(allTx.map(t => `${t.dataStr||t.data}|${t.importo}|${t.descrizione}`));
+        const pendKeys2 = new Set(pendingTx.map(t => `${t.dataStr||t.data}|${t.importo}|${t.descrizione}`));
+        if (!gsKeys2.has(key) && !pendKeys2.has(key)) {
+          pendingTx.push(newRow);
+          added++;
+        }
         existing.add(key);
-        added++;
       }
     });
 
-    // Salva nuove transazioni su Google Sheets
-    if (added > 0) await gsSaveTransactions(csvTx.slice(-added));
-    toast(`✓ ${added} movimenti importati da ${file.name}`, 'ok');
+    // Salva pending in localStorage
+    if (added > 0) savePending();
+    toast(`✓ ${added} nuove transazioni in attesa di approvazione`, 'ok');
     logSync(`CSV "${file.name}" (${src}, acquirente: ${acquirente||'—'}): +${added} transazioni`);
     mergeAndRefresh();
     renderSrcSummary();
   };
   reader.readAsText(file, 'UTF-8');
+}
+
+// ── PENDING: salva/carica in localStorage ────────────────────
+function savePending() {
+  localStorage.setItem('bp_pending', JSON.stringify(pendingTx));
+}
+
+function clearPending() {
+  pendingTx = [];
+  savePending();
+}
+
+// Confronta nuove righe con quelle già su GS e restituisce solo le nuove
+function filterNew(rows) {
+  const gsKeys = new Set(allTx.map(t => `${t.dataStr||t.data}|${t.importo}|${t.descrizione}`));
+  const pendKeys = new Set(pendingTx.map(t => `${t.dataStr||t.data}|${t.importo}|${t.descrizione}`));
+  return rows.filter(r => {
+    const k = `${r.dataStr||r.data}|${r.importo}|${r.descrizione}`;
+    return !gsKeys.has(k) && !pendKeys.has(k);
+  });
 }
 
 function mergeAndRefresh() {
@@ -1571,6 +1824,63 @@ async function clearCsvTx() {
   await gsReplaceTransactions(remaining);
   toast('Transazioni CSV rimosse', 'ok');
   mergeAndRefresh(); renderSrcSummary();
+}
+
+// ── MODAL MODIFICA SINGOLA TRANSAZIONE ──────────────────────
+let editingTxIdx = null;
+
+function openTxModal(idx) {
+  if (idx < 0 || idx >= allTx.length) return;
+  editingTxIdx = idx;
+  const t = allTx[idx];
+  document.getElementById('modal-tx-info').innerHTML =
+    `<strong>${t.descrizione}</strong><br>${t.dataStr} · <strong style="color:${t.tipo==='entrata'?'var(--acc2)':'var(--red)'}">${t.tipo==='entrata'?'+':'−'} ${eur(Math.abs(t.importo))}</strong>`;
+  // Precompila conto
+  const contoSel = document.getElementById('modal-tx-conto');
+  contoSel.value = (t.conto === 'straordinario') ? 'straordinario' : 'ordinario';
+  // Precompila tipologia
+  const tipSel = document.getElementById('modal-tx-tipologia');
+  tipSel.value = t.tipologia || 'Altro';
+  openModal('modal-tx');
+}
+
+async function saveTxModal() {
+  if (editingTxIdx === null) return;
+  const conto    = document.getElementById('modal-tx-conto').value;
+  const tipologia = document.getElementById('modal-tx-tipologia').value;
+  const budget   = getBudget(tipologia, '');
+
+  // Aggiorna in memoria
+  allTx[editingTxIdx].conto     = conto;
+  allTx[editingTxIdx].tipologia = tipologia;
+  allTx[editingTxIdx].budget    = budget;
+
+  // Aggiorna anche in csvTx/apiTx se presente
+  const t = allTx[editingTxIdx];
+  const updateIn = (arr) => {
+    const i = arr.findIndex(r => r.descrizione === t.descrizione && r.data === t.data && r.importo === t.importo);
+    if (i >= 0) { arr[i].conto = conto; arr[i].tipologia = tipologia; arr[i].budget = budget; }
+  };
+  updateIn(csvTx); updateIn(apiTx);
+
+  closeModal('modal-tx');
+  renderTx();
+  runSection();
+
+  // Salva su GS — aggiorna solo questa riga tramite chiave univoca
+  toast('Salvataggio su GS…', 'info');
+  try {
+    await gsFetch('updateRow', {
+      key: `${t.dataStr}|${t.importo}|${t.descrizione}`,
+      conto: conto,
+      tipologia: tipologia,
+      budget: budget
+    });
+    toast('✓ Transazione aggiornata', 'ok');
+  } catch(e) {
+    toast('Errore GS: ' + e.message, 'ko');
+  }
+  editingTxIdx = null;
 }
 
 // Esporta CSV già formattato per importazione diretta su Google Sheets

@@ -350,7 +350,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       <div class="card"><div class="card-ttl">Uscite per tipologia</div><div class="card-sub">Importo totale</div><div style="height:300px"><canvas id="ch-cat-bar"></canvas></div></div>
       <div class="card"><div class="card-ttl">Quota %</div><div class="card-sub">Peso relativo</div><div style="height:300px"><canvas id="ch-cat-pie"></canvas></div></div>
     </div>
-      <div class="card"><div class="card-ttl">Quota %</div><div class="card-sub">Peso relativo</div><div style="height:340px"><canvas id="ch-cat-pie"></canvas></div></div>
+      
     </div>
     <div class="card"><div class="card-ttl">Dettaglio categorie</div><div class="card-sub">Tutte le voci per importo</div><div id="cat-detail"></div></div>
     <div class="card"><div class="card-ttl">Analisi budget</div><div class="card-sub">Confronto budget vs spesa effettiva per categoria</div><div id="budget-detail"></div></div>
@@ -515,14 +515,18 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       <!-- Descrizione → Tipologia -->
       <div class="card">
         <div class="card-ttl">Descrizione → Tipologia</div>
-        <div class="card-sub">Keyword nella descrizione → categoria assegnata automaticamente</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div class="card-sub">Keyword → categoria. Regole separate per Entrate e Uscite.</div>
+        <div style="display:flex;gap:4px;margin-bottom:12px">
+          <button class="btn sm" id="tab-exp" onclick="setKwTab('expense')" style="background:var(--red)">Uscite</button>
+          <button class="btn ghost sm" id="tab-inc" onclick="setKwTab('income')">Entrate</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
           <input class="sbox" id="new-kw" placeholder="Keyword (es: ESSELUNGA)" style="flex:1">
-          <select class="fb" id="new-kw-tip" style="min-width:160px">${buildTipOptionsStatic()}</select>
+          <select class="fb" id="new-kw-tip" style="min-width:160px"></select>
           <button class="btn sm" onclick="addKwRule()">+ Aggiungi</button>
         </div>
         <input class="sbox" id="kw-search" placeholder="Cerca…" oninput="renderKwRules()" style="width:100%;margin-bottom:10px">
-        <div style="max-height:420px;overflow-y:auto" id="kw-rules-list"></div>
+        <div style="max-height:380px;overflow-y:auto" id="kw-rules-list"></div>
         <div style="font-size:10px;color:var(--muted);margin-top:8px" id="kw-count"></div>
       </div>
       <!-- Tipologia → Budget -->
@@ -530,7 +534,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
         <div class="card-ttl">Tipologia → Budget</div>
         <div class="card-sub">Categoria → Budget assegnato automaticamente</div>
         <div style="display:flex;gap:8px;margin-bottom:12px">
-          <select class="fb" id="new-bud-tip" style="flex:1">${buildTipOptionsStatic()}</select>
+          <select class="fb" id="new-bud-tip" style="flex:1"></select>
           <select class="fb" id="new-bud-val" style="min-width:130px">
             <option value="Necessità">Necessità</option>
             <option value="Tempo libero">Tempo libero</option>
@@ -541,7 +545,6 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       </div>
     </div>
   </div>
-
 </main>
 </div>
 
@@ -613,7 +616,7 @@ wrangler deploy
           <option value="Banca - Titoli">Banca - Titoli</option>
           <option value="Bollette - Acqua">Bollette - Acqua</option>
           <option value="Bollette - Altro">Bollette - Altro</option>
-          <option value="Bollette - Elettricità">Bollette - Elettricità</option>
+          <option value="Bollette - Elettricità">Bollette - Elettricitàoption>
           <option value="Bollette - Gas">Bollette - Gas</option>
           <option value="Bollette - Internet">Bollette - Internet</option>
           <option value="Bollette - Rifiuti">Bollette - Rifiuti</option>
@@ -1088,6 +1091,7 @@ function go(id, btn) {
   document.getElementById('global-filters').style.display = hideTop ? 'none' : '';
   if (id === 'banche')   renderBanks();
   else if (id === 'importa') renderSrcSummary();
+  else if (id === 'regole')  { setTimeout(() => { renderKwRules(); renderBudRules(); }, 50); }
   else runSection();
 }
 
@@ -1425,10 +1429,20 @@ function renderFlussi() {
 
   mk('ch-net','bar',{labels:lbl,datasets:[{label:'Saldo netto',data:keys.map(k=>+(bk[k].inc-bk[k].exp).toFixed(2)),backgroundColor:keys.map(k=>bk[k].inc>=bk[k].exp?'rgba(0,200,150,.7)':'rgba(240,72,90,.7)'),borderRadius:5,borderSkipped:false}]},{scales:AX,plugins:{legend:{labels:{color:'#c8ccdf',font:{size:9}}}}});
 
-  const s2=[...filteredTx].sort((a,b)=>a.data-b.data);
-  let cum=0;const lL=[],lV=[];
-  s2.forEach(r=>{cum+=r.importo;lL.push(r.dataStr);lV.push(+cum.toFixed(2));});
-  mk('ch-line2','line',{labels:lL,datasets:[{label:'Cumulativo',data:lV,borderColor:'#5b6af5',backgroundColor:'rgba(91,106,245,.07)',borderWidth:2,pointRadius:lV.length<80?2:0,tension:.3,fill:true}]},{scales:AX,plugins:{legend:{labels:{color:'#c8ccdf',font:{size:9}}}}});
+  // Cumulativo aggregato per periodo
+  const cumBk = {};
+  filteredTx.forEach(r => {
+    const k = bucketKey(r); if (!k) return;
+    cumBk[k] = (cumBk[k]||0) + r.importo;
+  });
+  const cumKeys = Object.keys(cumBk).sort();
+  let cumTot = 0;
+  const cumLbl = cumKeys.map(k => {
+    if (agg==='mese'){const[y,m]=k.split('-');return new Date(+y,+m-1).toLocaleDateString('it-IT',{month:'short',year:'2-digit'});}
+    return k;
+  });
+  const cumVal = cumKeys.map(k => { cumTot += cumBk[k]; return +cumTot.toFixed(2); });
+  mk('ch-line2','line',{labels:cumLbl,datasets:[{label:'Cumulativo',data:cumVal,borderColor:'#5b6af5',backgroundColor:'rgba(91,106,245,.07)',borderWidth:2,pointRadius:2,tension:.3,fill:true}]},{scales:AX,plugins:{legend:{labels:{color:'#c8ccdf',font:{size:9}}}}});
 
   const conti=[...new Set(filteredTx.map(r=>r.conto).filter(Boolean))];
   const cI={},cE={};
@@ -1989,7 +2003,7 @@ const BUDGET_MAP = {
   'Banca - Titoli':            'Necessità',
   'Bollette - Acqua':          'Necessità',
   'Bollette - Altro':          'Necessità',
-  'Bollette - Elettricità':    'Necessità',
+    'Bollette - Elettricità':    'Necessità',
   'Bollette - Gas':            'Necessità',
   'Bollette - Internet':       'Necessità',
   'Bollette - Rifiuti':        'Necessità',

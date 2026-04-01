@@ -232,6 +232,32 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     background:transparent;
   }
   .col-resizer:hover, .col-resizer.active { background:var(--acc); opacity:.5; }
+
+  /* ── RESPONSIVE TABLET ───────────────────────────────────── */
+  @media (max-width: 1024px) {
+    .shell { flex-direction: column; }
+    nav { width: 100%; min-height: unset; flex-direction: row; flex-wrap: wrap;
+          padding: 8px 12px; gap: 4px; border-right: none;
+          border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    nav .nav-logo { display: none; }
+    nav .nav-section { display: none; }
+    nav .nav-btn { padding: 6px 10px; font-size: 9px; flex: 0 0 auto; }
+    nav .nav-btn .ico { display: none; }
+    .main { padding: 14px; }
+    .g2 { grid-template-columns: 1fr; }
+    .section { padding: 0; }
+    .topbar { flex-wrap: wrap; gap: 6px; padding: 10px 0; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    #sec-transazioni table { font-size: 9px; }
+    #sec-transazioni th, #sec-transazioni td { padding: 6px 4px; }
+    .tbl-wrap { overflow-x: auto; }
+  }
+  @media (max-width: 768px) {
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+    nav .nav-btn { padding: 5px 8px; font-size: 8px; }
+    .card { padding: 12px; }
+    .card-ttl { font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -350,10 +376,8 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       <div class="card"><div class="card-ttl">Uscite per tipologia</div><div class="card-sub">Importo totale</div><div style="height:300px"><canvas id="ch-cat-bar"></canvas></div></div>
       <div class="card"><div class="card-ttl">Quota %</div><div class="card-sub">Peso relativo</div><div style="height:300px"><canvas id="ch-cat-pie"></canvas></div></div>
     </div>
-      
-    </div>
-    <div class="card"><div class="card-ttl">Dettaglio categorie</div><div class="card-sub">Tutte le voci per importo</div><div id="cat-detail"></div></div>
-    <div class="card"><div class="card-ttl">Analisi budget</div><div class="card-sub">Confronto budget vs spesa effettiva per categoria</div><div id="budget-detail"></div></div>
+    <div class="card" style="margin-top:16px"><div class="card-ttl">Dettaglio categorie</div><div class="card-sub">Tutte le voci per importo</div><div id="cat-detail"></div></div>
+    <div class="card" style="margin-top:16px"><div class="card-ttl">Analisi budget</div><div class="card-sub">Confronto budget vs spesa effettiva per categoria</div><div id="budget-detail"></div></div>
   </div>
 
   <!-- ── TRANSAZIONI ────────────────────────────────────────── -->

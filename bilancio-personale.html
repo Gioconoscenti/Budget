@@ -304,6 +304,8 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
   #ce-table td:first-child { text-align: left; color: var(--muted2); }
   #ce-table tr.ce-section td { background: var(--s2); font-weight: 700; color: var(--text); letter-spacing:.5px; }
   #ce-table tr.ce-section td:first-child { color: var(--acc); }
+  #ce-table tr td span[style*="display:inline-block"] { color: var(--acc); }
+  #ce-table tr:hover td { background: rgba(255,255,255,.03); }
   #ce-table tr.ce-total td { border-top: 2px solid var(--border); font-weight: 700; }
   #ce-table tr.ce-positive td.ce-val { color: var(--acc2); }
   #ce-table tr.ce-negative td.ce-val { color: var(--red); }
@@ -2468,11 +2470,11 @@ function renderConto() {
   const prevYear = year - 1;
 
   // Helper: raggruppa per trimestre
-  const byQ = (txs) => {
+  const byQ = (txs, refYear=year) => {
     const q = { Q1:[], Q2:[], Q3:[], Q4:[] };
     txs.forEach(r => {
       const d = r.data instanceof Date ? r.data : parseD(r.dataStr);
-      if (!d || d.getFullYear() !== year) return;
+      if (!d || d.getFullYear() !== refYear) return;
       const qi = 'Q' + (Math.floor(d.getMonth() / 3) + 1);
       q[qi].push(r);
     });
@@ -2484,7 +2486,7 @@ function renderConto() {
   const txYear  = allTx.filter(r => { const d = r.data instanceof Date ? r.data : parseD(r.dataStr); return d && d.getFullYear() === year     && isOrd(r); });
   const txPrev  = allTx.filter(r => { const d = r.data instanceof Date ? r.data : parseD(r.dataStr); return d && d.getFullYear() === prevYear  && isOrd(r); });
 
-  const qTx = byQ(allTx);
+  const qTx = byQ(txYear); // già filtrato per anno E conto ordinario
   const Qs  = ['Q1','Q2','Q3','Q4'];
 
   // Calcola introito atteso (media mensile anno precedente × 3 per trimestre)
@@ -2494,27 +2496,44 @@ function renderConto() {
     return Math.max(ms.size, 1);
   })() : 12;
   const monthlyExpected = prevInc / prevMonths;
-  const qExpected = monthlyExpected * 3; // per trimestre
+  // Introito atteso per periodo: 3 mesi (trim) o 12 mesi (anno)
+  const periodMonths = ceAgg === 'anno' ? 12 : 3;
+  const qExpected = monthlyExpected * periodMonths;
 
   // Spese fisse automatiche (da tipologia)
   const getFixed = (txs) => txs.filter(r => r.tipo === 'uscita' && CE_FIXED_TYPES.has(r.tipologia));
   const getVar   = (txs) => txs.filter(r => r.tipo === 'uscita' && !CE_FIXED_TYPES.has(r.tipologia));
 
   // Spese fisse manuali mensili → trimestrali
-  const manualFixedNec = ceFixed.filter(f => f.cat === 'necessità').reduce((s,f) => s + f.amt * 3, 0);
-  const manualFixedLib = ceFixed.filter(f => f.cat === 'tempo libero').reduce((s,f) => s + f.amt * 3, 0);
+  const manualFixedNec = ceFixed.filter(f => f.cat === 'necessità').reduce((s,f) => s + f.amt * periodMonths, 0);
+  const manualFixedLib = ceFixed.filter(f => f.cat === 'tempo libero').reduce((s,f) => s + f.amt * periodMonths, 0);
 
   // Aggregazione: trimestre o anno intero
   const useQs = ceAgg === 'trim' ? Qs : ['Anno'];
+
+  // Spese attese = media trimestrale/annuale dall'anno precedente
+  const qTxPrev = byQ(txPrev, prevYear); // trimestri anno precedente
+
+  const prevSpese = (txs) => {
+    const fN = getFixed(txs).filter(r=>r.budget==='Necessità').reduce((s,r)=>s+Math.abs(r.importo),0);
+    const fL = getFixed(txs).filter(r=>r.budget!=='Necessità').reduce((s,r)=>s+Math.abs(r.importo),0);
+    const vN = getVar(txs).filter(r=>r.budget==='Necessità').reduce((s,r)=>s+Math.abs(r.importo),0);
+    const vL = getVar(txs).filter(r=>r.budget==='Tempo libero'||r.budget!=='Necessità').reduce((s,r)=>s+Math.abs(r.importo),0);
+    return fN + fL + vN + vL;
+  };
+
+  // Spese attese per periodo: media dei trimestri dell'anno precedente
+  const prevSpeseTot = prevSpese(txPrev);
+  const prevSpesePeriodo = ceAgg === 'anno'
+    ? prevSpeseTot
+    : prevSpeseTot / 4; // media trimestrale
 
   // Costruisci righe
   const rows = {};
   const totals = { inc:0, incExp:0, fixNec:0, fixLib:0, varNec:0, varLib:0, rispAtt:0, rispEff:0 };
 
   useQs.forEach(q => {
-    const tx = q === 'Anno'
-      ? txYear
-      : qTx[q];
+    const tx = q === 'Anno' ? txYear : qTx[q];
     const inc  = tx.filter(r => r.tipo === 'entrata').reduce((s,r) => s + r.importo, 0);
     const fixN = getFixed(tx).filter(r => r.budget === 'Necessità').reduce((s,r) => s + Math.abs(r.importo), 0);
     const fixL = getFixed(tx).filter(r => r.budget !== 'Necessità').reduce((s,r) => s + Math.abs(r.importo), 0);
@@ -2522,9 +2541,13 @@ function renderConto() {
     const varL = getVar(tx).filter(r => r.budget === 'Tempo libero' || r.budget !== 'Necessità').reduce((s,r) => s + Math.abs(r.importo), 0);
     const totSpese = fixN + fixL + manualFixedNec + varN + varL + manualFixedLib;
     const rispEff  = inc - totSpese;
-    const rispAtt  = qExpected - totSpese;
+    // Risparmio atteso = introito atteso - spese attese (anno precedente)
+    const speseAtt = prevSpesePeriodo + manualFixedNec + manualFixedLib;
+    const rispAtt  = qExpected - speseAtt;
 
-    rows[q] = { inc, incExp: qExpected, fixN: fixN + manualFixedNec, fixL: fixL + manualFixedLib, varN, varL, totSpese, rispEff, rispAtt };
+    rows[q] = { inc, incExp: qExpected, speseAtt,
+                fixN: fixN + manualFixedNec, fixL: fixL + manualFixedLib, varN, varL,
+                totSpese, rispEff, rispAtt };
     totals.inc     += inc;
     totals.incExp  += qExpected;
     totals.fixNec  += fixN + manualFixedNec;
@@ -2576,15 +2599,51 @@ function renderConto() {
   const tbl = document.getElementById('ce-table');
   if (!tbl) return;
 
-  const fmtCell = (v, pos='auto') => {
-    const cls = pos === 'auto' ? (v >= 0 ? 'ce-positive' : 'ce-negative') : pos;
-    return `<td class="ce-val" style="color:${v>=0?'var(--acc2)':'var(--red)'}">${eur(v)}</td>`;
+  const fmtCell = (v) => `<td class="ce-val" style="color:${v>=0?'var(--acc2)':'var(--red)'}">${eur(v)}</td>`;
+
+  const secRow = (label) => `<tr class="ce-section"><td>${label}</td>${showCols.map(()=>'<td></td>').join('')}<td></td></tr>`;
+
+  // Riga con pulsante espandi — dettaglio per tipologia
+  let ceExpandState = {};
+  const detailRow = (id, label, vals, getDetail) => {
+    const isOpen = ceExpandState[id];
+    const mainRow = `<tr id="cerow-${id}">
+      <td style="cursor:pointer;user-select:none" onclick="toggleCERow('${id}')">
+        <span style="display:inline-block;width:14px;font-size:9px;transition:.2s">${isOpen?'▼':'▶'}</span> ${label}
+      </td>
+      ${vals.map(v => fmtCell(v)).join('')}
+    </tr>`;
+    if (!isOpen) return mainRow;
+    const detail = getDetail();
+    const detRows = Object.entries(detail)
+      .sort((a,b) => Math.abs(b[1].tot) - Math.abs(a[1].tot))
+      .map(([tip, d]) => `<tr style="background:rgba(255,255,255,.02)">
+        <td style="padding-left:28px;font-size:9px;color:var(--muted2)">${tip}</td>
+        ${showCols.map(q => fmtCell(-Math.abs(d[q]||0))).join('')}
+        <td class="ce-val" style="color:var(--red);font-size:9px">${eur(-Math.abs(d.tot))}</td>
+      </tr>`).join('');
+    return mainRow + detRows;
   };
-  const rowHtml = (label, vals, cls='', sub=false) => {
-    const tdLabel = sub ? `<td class="ce-sub">${label}</td>` : `<td>${label}</td>`;
-    return `<tr class="${cls}">${tdLabel}${vals.map(v => typeof v === 'number' ? fmtCell(v) : `<td class="ce-val">${v}</td>`).join('')}</tr>`;
+
+  window.toggleCERow = (id) => {
+    ceExpandState[id] = !ceExpandState[id];
+    renderConto();
   };
-  const secRow = (label) => `<tr class="ce-section"><td>${label}</td>${Qs.map(()=>'<td></td>').join('')}<td></td></tr>`;
+
+  // Calcola dettaglio per tipologia per ogni periodo
+  const tipDetail = (filterFn) => {
+    const d = {};
+    showCols.forEach(q => {
+      const tx = q === 'Anno' ? txYear : qTx[q];
+      tx.filter(r => r.tipo === 'uscita' && filterFn(r)).forEach(r => {
+        const tip = r.tipologia || 'Altro';
+        if (!d[tip]) d[tip] = { tot: 0 };
+        d[tip][q] = (d[tip][q] || 0) + Math.abs(r.importo);
+        d[tip].tot += Math.abs(r.importo);
+      });
+    });
+    return d;
+  };
 
   // In modalità anno mostra solo colonna totale, senza subtotali trimestrali
   const showCols = ceAgg === 'trim' ? useQs : [];
@@ -2602,12 +2661,20 @@ function renderConto() {
       ${rowHtml('Delta introito', [...showCols.map(q=>rows[q].inc - rows[q].incExp), totals.inc - totals.incExp])}
 
       ${secRow('▸ SPESE NECESSITÀ')}
-      ${rowHtml('Fisse (mutuo, bollette, auto)', [...showCols.map(q=>-rows[q].fixN), -totals.fixNec])}
-      ${rowHtml('Variabili (alimenti, salute…)', [...showCols.map(q=>-rows[q].varN), -totals.varNec])}
+      ${detailRow('fixNec', 'Fisse (mutuo, bollette, auto)',
+          [...showCols.map(q=>-rows[q].fixN), -totals.fixNec],
+          () => tipDetail(r => CE_FIXED_TYPES.has(r.tipologia) && r.budget === 'Necessità'))}
+      ${detailRow('varNec', 'Variabili (alimenti, salute…)',
+          [...showCols.map(q=>-rows[q].varN), -totals.varNec],
+          () => tipDetail(r => !CE_FIXED_TYPES.has(r.tipologia) && r.budget === 'Necessità'))}
 
       ${secRow('▸ SPESE TEMPO LIBERO')}
-      ${rowHtml('Fisse (abbonamenti…)', [...showCols.map(q=>-rows[q].fixL), -totals.fixLib])}
-      ${rowHtml('Variabili (pasti, viaggi…)', [...showCols.map(q=>-rows[q].varL), -totals.varLib])}
+      ${detailRow('fixLib', 'Fisse (abbonamenti…)',
+          [...showCols.map(q=>-rows[q].fixL), -totals.fixLib],
+          () => tipDetail(r => CE_FIXED_TYPES.has(r.tipologia) && r.budget !== 'Necessità'))}
+      ${detailRow('varLib', 'Variabili (pasti, viaggi…)',
+          [...showCols.map(q=>-rows[q].varL), -totals.varLib],
+          () => tipDetail(r => !CE_FIXED_TYPES.has(r.tipologia) && (r.budget === 'Tempo libero' || r.budget !== 'Necessità')))}
 
       <tr class="ce-total">
         <td><strong>RISPARMIO EFFETTIVO</strong></td>
@@ -2788,13 +2855,18 @@ function stamp(msg) { st('stxt', msg); }
 // ═══════════════════════════════════════════════════════════════
 // ── AVVIO ──────────────────────────────────────────────────────
 async function init() {
-  // 1) Carica GS URL dal localStorage (l'unica cosa che rimane lì)
+  // 1) Carica GS URL dal localStorage
   loadGsUrl();
 
-  // 2) Carica da Google Sheets (transazioni + sessioni + config + log)
+  // 2) Carica da Google Sheets
   await gsLoad();
 
-  // data.json non utilizzato
+  // 3) Imposta pulsante attivo a Quest'anno
+  const btnThisYear = document.querySelector('[data-p="thisyear"]');
+  if (btnThisYear) {
+    document.querySelectorAll('.period-bar .fb').forEach(b => b.classList.remove('active'));
+    btnThisYear.classList.add('active');
+  }
 
   // 4) Gestisci callback OAuth da Enable Banking
   handleOAuthCallback();

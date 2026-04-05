@@ -236,12 +236,15 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
   /* ── RESPONSIVE TABLET ───────────────────────────────────── */
   @media (max-width: 1024px) {
     .shell { flex-direction: column; }
-    nav { width: 100%; min-height: unset; flex-direction: row; flex-wrap: wrap;
-          padding: 8px 12px; gap: 4px; border-right: none;
-          border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    nav { width: 100%; min-height: unset; flex-direction: row; flex-wrap: nowrap;
+          overflow-x: auto; padding: 6px 10px; gap: 4px; border-right: none;
+          border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+          scrollbar-width: none; -ms-overflow-style: none; }
+    nav::-webkit-scrollbar { display: none; }
     nav .nav-logo { display: none; }
-    nav .nav-section { display: none; }
-    nav .nav-btn { padding: 6px 10px; font-size: 9px; flex: 0 0 auto; }
+    nav .nav-section { display: contents; } /* mostra i figli diretti inline */
+    nav .nav-lbl { display: none; } /* nascondi le label ANALISI/DATI */
+    nav .nav-btn { padding: 8px 14px; font-size: 10px; flex: 0 0 auto; white-space: nowrap; }
     nav .nav-btn .ico { display: none; }
     .main { padding: 14px; }
     .g2 { grid-template-columns: 1fr; }

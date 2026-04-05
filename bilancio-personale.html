@@ -356,10 +356,10 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       <h2 id="ptitle">Panoramica</h2>
       <div class="frow" id="period-bar">
         <span class="frow-label">Periodo</span>
-        <button class="fb active" data-p="all"       onclick="setPeriod(this,'all')">Tutti</button>
+        <button class="fb"        data-p="all"       onclick="setPeriod(this,'all')">Tutti</button>
         <button class="fb"        data-p="thismonth" onclick="setPeriod(this,'thismonth')">Questo mese</button>
         <button class="fb"        data-p="lastmonth" onclick="setPeriod(this,'lastmonth')">Mese scorso</button>
-        <button class="fb"        data-p="thisyear"  onclick="setPeriod(this,'thisyear')">Quest'anno</button>
+        <button class="fb active" data-p="thisyear"  onclick="setPeriod(this,'thisyear')">Quest'anno</button>
         <select class="fb" id="yr-sel" onchange="setYear(this.value)"><option value="">Anno…</option></select>
         <select class="fb" id="mo-sel" onchange="setMonth(this.value)"><option value="">Mese…</option></select>
       </div>
@@ -2444,6 +2444,7 @@ function renderCEFixedList() {
 }
 
 let ceAgg = 'trim'; // 'trim' o 'anno'
+let ceExpandState = {}; // stato espansione righe conto economico
 
 function setCEAgg(v) {
   ceAgg = v;
@@ -2603,8 +2604,9 @@ function renderConto() {
 
   const secRow = (label) => `<tr class="ce-section"><td>${label}</td>${showCols.map(()=>'<td></td>').join('')}<td></td></tr>`;
 
+  const rowHtml = (label, vals) => `<tr><td>${label}</td>${vals.map(v => fmtCell(v)).join('')}</tr>`;
+
   // Riga con pulsante espandi — dettaglio per tipologia
-  let ceExpandState = {};
   const detailRow = (id, label, vals, getDetail) => {
     const isOpen = ceExpandState[id];
     const mainRow = `<tr id="cerow-${id}">
@@ -2861,14 +2863,7 @@ async function init() {
   // 2) Carica da Google Sheets
   await gsLoad();
 
-  // 3) Imposta pulsante attivo a Quest'anno
-  const btnThisYear = document.querySelector('[data-p="thisyear"]');
-  if (btnThisYear) {
-    document.querySelectorAll('.period-bar .fb').forEach(b => b.classList.remove('active'));
-    btnThisYear.classList.add('active');
-  }
-
-  // 4) Gestisci callback OAuth da Enable Banking
+  // 3) Gestisci callback OAuth da Enable Banking
   handleOAuthCallback();
 }
 

@@ -251,13 +251,67 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     #sec-transazioni table { font-size: 9px; }
     #sec-transazioni th, #sec-transazioni td { padding: 6px 4px; }
     .tbl-wrap { overflow-x: auto; }
+    /* Conto Economico tablet */
+    #ce-table { font-size: 9px; }
+    #ce-table th, #ce-table td { padding: 5px 6px; }
+    #sec-conto .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    #sec-conto [style*="display:flex"] { flex-wrap: wrap; }
+    /* Regole tablet */
+    #sec-regole .g2 { grid-template-columns: 1fr; }
+    /* Banche tablet */
+    .bank-grid { grid-template-columns: 1fr !important; }
+    /* Filtri transazioni tablet */
+    #sec-transazioni .filters { flex-wrap: wrap; }
+    #date-from, #date-to { width: 100px !important; }
   }
   @media (max-width: 768px) {
     .stat-grid { grid-template-columns: 1fr 1fr; }
     nav .nav-btn { padding: 5px 8px; font-size: 8px; }
     .card { padding: 12px; }
     .card-ttl { font-size: 11px; }
+    /* Conto economico telefono — tabella trimestrale scorribile */
+    #ce-table { font-size: 8px; min-width: 480px; }
+    #sec-conto .tbl-wrap { overflow-x: auto; }
+    #sec-conto .stat-grid { grid-template-columns: 1fr 1fr; }
+    .ce-kpi-value { font-size: 14px; }
+    /* Transazioni telefono */
+    #sec-transazioni table { min-width: 600px; }
+    /* Topbar filtri telefono */
+    .period-bar { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+    .period-bar .fb { white-space: nowrap; flex-shrink: 0; }
+    /* Regole telefono */
+    .inline-sel { max-width: 120px !important; }
+    /* Input date */
+    #date-from, #date-to { width: 90px !important; font-size: 8px; }
   }
+  @media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    nav .nav-btn { font-size: 7.5px; padding: 4px 6px; }
+    .ce-kpi-value { font-size: 13px; }
+    #sec-conto .stat-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── CONTO ECONOMICO ─────────────────────────────────────── */
+  #ce-table th {
+    background: var(--s2); color: var(--muted); font-size: 8px;
+    letter-spacing: 1px; padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border);
+  }
+  #ce-table th:first-child { text-align: left; }
+  #ce-table td {
+    padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--border2);
+    font-size: 10px; color: var(--text);
+  }
+  #ce-table td:first-child { text-align: left; color: var(--muted2); }
+  #ce-table tr.ce-section td { background: var(--s2); font-weight: 700; color: var(--text); letter-spacing:.5px; }
+  #ce-table tr.ce-section td:first-child { color: var(--acc); }
+  #ce-table tr.ce-total td { border-top: 2px solid var(--border); font-weight: 700; }
+  #ce-table tr.ce-positive td.ce-val { color: var(--acc2); }
+  #ce-table tr.ce-negative td.ce-val { color: var(--red); }
+  #ce-table td.ce-val { font-weight: 600; }
+  #ce-table td.ce-sub { font-size: 9px; color: var(--muted); padding-left: 24px; }
+  .ce-kpi-card { background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px 18px; }
+  .ce-kpi-label { font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px; }
+  .ce-kpi-value { font-size:18px;font-weight:700;font-family:'Space Mono',monospace; }
 </style>
 </head>
 <body>
@@ -280,6 +334,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     <button class="nav-btn" onclick="go('categorie',this)"><span class="ico">◎</span>Categorie</button>
     <button class="nav-btn" onclick="go('transazioni',this)"><span class="ico">≡</span>Transazioni</button>
     <button class="nav-btn" onclick="go('investimenti',this)"><span class="ico">◆</span>Investimenti</button>
+    <button class="nav-btn" onclick="go('conto',this)"><span class="ico">📊</span>Conto Economico</button>
   </div>
   <div class="nav-sep"></div>
   <div class="nav-section">
@@ -569,6 +624,68 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       </div>
     </div>
   </div>
+  <!-- ── CONTO ECONOMICO ──────────────────────────────────── -->
+  <div class="section" id="sec-conto">
+
+    <!-- Barra controlli -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+      <select class="fb" id="ce-year" onchange="renderConto()" style="min-width:100px"></select>
+      <span style="font-size:10px;color:var(--muted)">Anno</span>
+      <div style="display:flex;gap:4px;margin-left:8px">
+        <button class="btn sm" id="ce-agg-trim" onclick="setCEAgg('trim')" style="font-size:9px;padding:4px 10px;background:var(--acc)">Trimestre</button>
+        <button class="btn ghost sm" id="ce-agg-anno" onclick="setCEAgg('anno')" style="font-size:9px;padding:4px 10px">Anno</button>
+      </div>
+      <div style="margin-left:auto">
+        <button class="btn ghost sm" onclick="toggleCESettings()" style="font-size:9px">⚙ Spese fisse manuali</button>
+      </div>
+    </div>
+
+    <!-- Pannello spese fisse manuali (collassabile) -->
+    <div id="ce-settings" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:18px">
+      <div class="card-ttl" style="margin-bottom:10px">Spese fisse mensili manuali</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">
+        Aggiungi voci ricorrenti non rilevate automaticamente (es. affitto in contanti, abbonamenti non tracciati)
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <input class="sbox" id="ce-fix-label" placeholder="Etichetta (es: Affitto)" style="flex:1;min-width:140px">
+        <input class="sbox" id="ce-fix-amt"   placeholder="€/mese" type="number" min="0" style="width:100px">
+        <select class="fb" id="ce-fix-cat" style="min-width:130px">
+          <option value="necessità">Necessità</option>
+          <option value="tempo libero">Tempo libero</option>
+        </select>
+        <button class="btn sm" onclick="addCEFixed()">+ Aggiungi</button>
+      </div>
+      <div id="ce-fixed-list"></div>
+    </div>
+
+    <!-- KPI row -->
+    <div class="stat-grid" id="ce-kpi" style="margin-bottom:18px"></div>
+
+    <!-- Tabella conto economico trimestrale -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-ttl">Conto Economico Trimestrale</div>
+      <div class="card-sub" id="ce-subtitle"></div>
+      <div class="tbl-wrap" style="margin-top:12px">
+        <table id="ce-table" style="width:100%;border-collapse:collapse;font-size:10px;font-family:'Space Mono',monospace"></table>
+      </div>
+    </div>
+
+    <!-- Backlog chart -->
+    <div class="g2">
+      <div class="card">
+        <div class="card-ttl">Backlog cumulativo</div>
+        <div class="card-sub">Differenza accumulata tra introito atteso ed effettivo</div>
+        <div style="height:260px"><canvas id="ch-backlog"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Risparmio atteso vs effettivo</div>
+        <div class="card-sub">Per trimestre nell'anno selezionato</div>
+        <div style="height:260px"><canvas id="ch-risparmio"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+
 </main>
 </div>
 
@@ -689,16 +806,16 @@ const PAGE = 20;
 const TITLES = {
   overview:'Panoramica', flussi:'Flussi', categorie:'Categorie',
   transazioni:'Transazioni', investimenti:'Investimenti',
-  banche:'Connessioni Bancarie', importa:'Importa CSV', regole:'Regole Categorizzazione'
+  banche:'Connessioni Bancarie', importa:'Importa CSV', regole:'Regole Categorizzazione', conto:'Conto Economico'
 };
-const HIDE_TOPBAR = new Set(['banche','importa','regole']);
+const HIDE_TOPBAR = new Set(['banche','importa','regole','conto']);
 
 let allTx = [], allInv = [], filteredTx = [];
 let apiTx  = [];   // caricati da Google Sheets
 let csvTx  = [];   // caricati da Google Sheets
 let pendingTx = JSON.parse(localStorage.getItem('bp_pending') || '[]'); // nuove da approvare
 
-let curSec = 'overview', period = 'all', yearF = '', monthF = '';
+let curSec = 'overview', period = 'thisyear', yearF = '', monthF = '';
 let contoG = '', acquirenteG = '', sourceG = '';
 let sortField = 'data', sortDir = -1, curPage = 1;
 let CH = {}, lastMod = '';
@@ -1116,6 +1233,7 @@ function go(id, btn) {
   if (id === 'banche')   renderBanks();
   else if (id === 'importa') renderSrcSummary();
   else if (id === 'regole')  { setTimeout(() => { renderKwRules(); renderBudRules(); }, 50); }
+  else if (id === 'conto')   { setTimeout(renderConto, 50); }
   else runSection();
 }
 
@@ -2268,6 +2386,261 @@ async function clearCsvTx() {
   toast('Transazioni CSV rimosse', 'ok');
   mergeAndRefresh(); renderSrcSummary();
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  CONTO ECONOMICO
+// ═══════════════════════════════════════════════════════════════
+
+// Spese fisse manuali — {label, amt, cat}[]
+let ceFixed = JSON.parse(localStorage.getItem('bp_ce_fixed') || '[]');
+function saveCEFixed() { localStorage.setItem('bp_ce_fixed', JSON.stringify(ceFixed)); }
+
+// Tipologie automaticamente classificate come spese fisse
+const CE_FIXED_TYPES = new Set([
+  'Banca - Mutuo','Banca - Carta di credito','Banca - Commissioni',
+  'Bollette - Acqua','Bollette - Elettricità','Bollette - Gas',
+  'Bollette - Internet','Bollette - Rifiuti',
+  'Casa - Affitto','Automobile - Leasing','Assicurazione'
+]);
+
+function toggleCESettings() {
+  const el = document.getElementById('ce-settings');
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  renderCEFixedList();
+}
+
+function addCEFixed() {
+  const label = document.getElementById('ce-fix-label')?.value.trim();
+  const amt   = parseFloat(document.getElementById('ce-fix-amt')?.value) || 0;
+  const cat   = document.getElementById('ce-fix-cat')?.value || 'necessità';
+  if (!label || !amt) return;
+  ceFixed.push({ label, amt, cat });
+  saveCEFixed();
+  document.getElementById('ce-fix-label').value = '';
+  document.getElementById('ce-fix-amt').value   = '';
+  renderCEFixedList();
+  toast('✓ Spesa fissa aggiunta', 'ok');
+}
+
+function deleteCEFixed(i) {
+  ceFixed.splice(i, 1);
+  saveCEFixed();
+  renderCEFixedList();
+}
+
+function renderCEFixedList() {
+  const el = document.getElementById('ce-fixed-list');
+  if (!el) return;
+  if (!ceFixed.length) { el.innerHTML = '<p style="font-size:10px;color:var(--muted)">Nessuna spesa fissa manuale</p>'; return; }
+  el.innerHTML = ceFixed.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:10px">
+      <span style="flex:1">${f.label}</span>
+      <span style="color:var(--red)">${eur(f.amt)}/mese</span>
+      <span style="color:var(--muted);font-size:9px">${f.cat}</span>
+      <button class="btn danger sm" style="padding:2px 7px;font-size:9px" onclick="deleteCEFixed(${i})">✕</button>
+    </div>`).join('');
+}
+
+let ceAgg = 'trim'; // 'trim' o 'anno'
+
+function setCEAgg(v) {
+  ceAgg = v;
+  ['ce-agg-trim','ce-agg-anno'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.className = id === 'ce-agg-' + v ? 'btn sm' : 'btn ghost sm';
+    b.style.background = id === 'ce-agg-' + v ? 'var(--acc)' : '';
+  });
+  renderConto();
+}
+
+function renderConto() {
+  const yearSel = document.getElementById('ce-year');
+  if (!yearSel) return;
+
+  // Popola anni disponibili
+  const years = [...new Set(allTx.map(r => r.data instanceof Date ? r.data.getFullYear() : null).filter(Boolean))].sort();
+  if (!yearSel.innerHTML.trim() || yearSel.options.length !== years.length) {
+    const cur = yearSel.value || String(Math.max(...years));
+    yearSel.innerHTML = years.map(y => `<option value="${y}" ${y==cur?'selected':''}>${y}</option>`).join('');
+  }
+  const year = parseInt(yearSel.value) || years[years.length - 1];
+  const prevYear = year - 1;
+
+  // Helper: raggruppa per trimestre
+  const byQ = (txs) => {
+    const q = { Q1:[], Q2:[], Q3:[], Q4:[] };
+    txs.forEach(r => {
+      const d = r.data instanceof Date ? r.data : parseD(r.dataStr);
+      if (!d || d.getFullYear() !== year) return;
+      const qi = 'Q' + (Math.floor(d.getMonth() / 3) + 1);
+      q[qi].push(r);
+    });
+    return q;
+  };
+
+  // Transazioni anno corrente e precedente — solo conto ORDINARIO
+  const isOrd = r => !r.conto || r.conto.toLowerCase() === 'ordinario';
+  const txYear  = allTx.filter(r => { const d = r.data instanceof Date ? r.data : parseD(r.dataStr); return d && d.getFullYear() === year     && isOrd(r); });
+  const txPrev  = allTx.filter(r => { const d = r.data instanceof Date ? r.data : parseD(r.dataStr); return d && d.getFullYear() === prevYear  && isOrd(r); });
+
+  const qTx = byQ(allTx);
+  const Qs  = ['Q1','Q2','Q3','Q4'];
+
+  // Calcola introito atteso (media mensile anno precedente × 3 per trimestre)
+  const prevInc = txPrev.filter(r => r.tipo === 'entrata').reduce((s,r) => s + r.importo, 0);
+  const prevMonths = txPrev.length > 0 ? (() => {
+    const ms = new Set(txPrev.map(r => { const d = r.data instanceof Date?r.data:parseD(r.dataStr); return d?`${d.getFullYear()}-${d.getMonth()}`:null; }).filter(Boolean));
+    return Math.max(ms.size, 1);
+  })() : 12;
+  const monthlyExpected = prevInc / prevMonths;
+  const qExpected = monthlyExpected * 3; // per trimestre
+
+  // Spese fisse automatiche (da tipologia)
+  const getFixed = (txs) => txs.filter(r => r.tipo === 'uscita' && CE_FIXED_TYPES.has(r.tipologia));
+  const getVar   = (txs) => txs.filter(r => r.tipo === 'uscita' && !CE_FIXED_TYPES.has(r.tipologia));
+
+  // Spese fisse manuali mensili → trimestrali
+  const manualFixedNec = ceFixed.filter(f => f.cat === 'necessità').reduce((s,f) => s + f.amt * 3, 0);
+  const manualFixedLib = ceFixed.filter(f => f.cat === 'tempo libero').reduce((s,f) => s + f.amt * 3, 0);
+
+  // Aggregazione: trimestre o anno intero
+  const useQs = ceAgg === 'trim' ? Qs : ['Anno'];
+
+  // Costruisci righe
+  const rows = {};
+  const totals = { inc:0, incExp:0, fixNec:0, fixLib:0, varNec:0, varLib:0, rispAtt:0, rispEff:0 };
+
+  useQs.forEach(q => {
+    const tx = q === 'Anno'
+      ? txYear
+      : qTx[q];
+    const inc  = tx.filter(r => r.tipo === 'entrata').reduce((s,r) => s + r.importo, 0);
+    const fixN = getFixed(tx).filter(r => r.budget === 'Necessità').reduce((s,r) => s + Math.abs(r.importo), 0);
+    const fixL = getFixed(tx).filter(r => r.budget !== 'Necessità').reduce((s,r) => s + Math.abs(r.importo), 0);
+    const varN = getVar(tx).filter(r => r.budget === 'Necessità').reduce((s,r) => s + Math.abs(r.importo), 0);
+    const varL = getVar(tx).filter(r => r.budget === 'Tempo libero' || r.budget !== 'Necessità').reduce((s,r) => s + Math.abs(r.importo), 0);
+    const totSpese = fixN + fixL + manualFixedNec + varN + varL + manualFixedLib;
+    const rispEff  = inc - totSpese;
+    const rispAtt  = qExpected - totSpese;
+
+    rows[q] = { inc, incExp: qExpected, fixN: fixN + manualFixedNec, fixL: fixL + manualFixedLib, varN, varL, totSpese, rispEff, rispAtt };
+    totals.inc     += inc;
+    totals.incExp  += qExpected;
+    totals.fixNec  += fixN + manualFixedNec;
+    totals.fixLib  += fixL + manualFixedLib;
+    totals.varNec  += varN;
+    totals.varLib  += varL;
+    totals.rispEff += rispEff;
+    totals.rispAtt += rispAtt;
+  });
+
+  // Backlog cumulativo (storico anni)
+  const yearlyData = {};
+  years.forEach(y => {
+    const ytx = allTx.filter(r => { const d=r.data instanceof Date?r.data:parseD(r.dataStr); return d&&d.getFullYear()===y&&isOrd(r); });
+    const yInc = ytx.filter(r=>r.tipo==='entrata').reduce((s,r)=>s+r.importo,0);
+    // introito atteso per quell'anno: media anno precedente (solo ordinario)
+    const ptx  = allTx.filter(r => { const d=r.data instanceof Date?r.data:parseD(r.dataStr); return d&&d.getFullYear()===y-1&&isOrd(r); });
+    const pInc = ptx.filter(r=>r.tipo==='entrata').reduce((s,r)=>s+r.importo,0);
+    const pMs  = Math.max(new Set(ptx.map(r=>{const d=r.data instanceof Date?r.data:parseD(r.dataStr);return d?`${d.getFullYear()}-${d.getMonth()}`:null;}).filter(Boolean)).size, 1);
+    const yExp = ptx.length > 0 ? (pInc/pMs)*12 : yInc;
+    yearlyData[y] = { inc: yInc, exp: yExp, delta: yInc - yExp };
+  });
+  let cumBacklog = 0;
+  const blLbl = [], blVal = [];
+  years.forEach(y => { cumBacklog += yearlyData[y].delta; blLbl.push(String(y)); blVal.push(+cumBacklog.toFixed(2)); });
+
+  // ── Render KPI ───────────────────────────────────────────────
+  const kpiEl = document.getElementById('ce-kpi');
+  if (kpiEl) {
+    const rispPct = totals.inc > 0 ? (totals.rispEff / totals.inc * 100).toFixed(1) : 0;
+    const kpis = [
+      { label: 'Introito ' + year, val: eur(totals.inc), color: 'var(--acc2)' },
+      { label: 'Introito atteso', val: eur(totals.incExp), color: 'var(--muted2)' },
+      { label: 'Spese necessità', val: eur(totals.fixNec + totals.varNec), color: 'var(--red)' },
+      { label: 'Spese tempo libero', val: eur(totals.fixLib + totals.varLib), color: '#e88c4a' },
+      { label: 'Risparmio effettivo', val: eur(totals.rispEff), color: totals.rispEff >= 0 ? 'var(--acc2)' : 'var(--red)' },
+      { label: 'Tasso risparmio', val: rispPct + '%', color: totals.rispEff >= 0 ? 'var(--acc2)' : 'var(--red)' },
+    ];
+    kpiEl.innerHTML = kpis.map(k => `
+      <div class="ce-kpi-card">
+        <div class="ce-kpi-label">${k.label}</div>
+        <div class="ce-kpi-value" style="color:${k.color}">${k.val}</div>
+      </div>`).join('');
+  }
+
+  document.getElementById('ce-subtitle').textContent = `Anno ${year} · Solo conto ordinario · Introito atteso basato su media ${prevYear}`;
+
+  // ── Render Tabella ───────────────────────────────────────────
+  const tbl = document.getElementById('ce-table');
+  if (!tbl) return;
+
+  const fmtCell = (v, pos='auto') => {
+    const cls = pos === 'auto' ? (v >= 0 ? 'ce-positive' : 'ce-negative') : pos;
+    return `<td class="ce-val" style="color:${v>=0?'var(--acc2)':'var(--red)'}">${eur(v)}</td>`;
+  };
+  const rowHtml = (label, vals, cls='', sub=false) => {
+    const tdLabel = sub ? `<td class="ce-sub">${label}</td>` : `<td>${label}</td>`;
+    return `<tr class="${cls}">${tdLabel}${vals.map(v => typeof v === 'number' ? fmtCell(v) : `<td class="ce-val">${v}</td>`).join('')}</tr>`;
+  };
+  const secRow = (label) => `<tr class="ce-section"><td>${label}</td>${Qs.map(()=>'<td></td>').join('')}<td></td></tr>`;
+
+  // In modalità anno mostra solo colonna totale, senza subtotali trimestrali
+  const showCols = ceAgg === 'trim' ? useQs : [];
+
+  tbl.innerHTML = `
+    <thead><tr>
+      <th style="text-align:left">VOCE</th>
+      ${showCols.map(q=>`<th>${q}</th>`).join('')}
+      <th>TOTALE</th>
+    </tr></thead>
+    <tbody>
+      ${secRow('▸ INTROITO')}
+      ${rowHtml('Introito effettivo', [...showCols.map(q=>rows[q].inc), totals.inc])}
+      ${rowHtml('Introito atteso', [...showCols.map(q=>rows[q].incExp), totals.incExp])}
+      ${rowHtml('Delta introito', [...showCols.map(q=>rows[q].inc - rows[q].incExp), totals.inc - totals.incExp])}
+
+      ${secRow('▸ SPESE NECESSITÀ')}
+      ${rowHtml('Fisse (mutuo, bollette, auto)', [...showCols.map(q=>-rows[q].fixN), -totals.fixNec])}
+      ${rowHtml('Variabili (alimenti, salute…)', [...showCols.map(q=>-rows[q].varN), -totals.varNec])}
+
+      ${secRow('▸ SPESE TEMPO LIBERO')}
+      ${rowHtml('Fisse (abbonamenti…)', [...showCols.map(q=>-rows[q].fixL), -totals.fixLib])}
+      ${rowHtml('Variabili (pasti, viaggi…)', [...showCols.map(q=>-rows[q].varL), -totals.varLib])}
+
+      <tr class="ce-total">
+        <td><strong>RISPARMIO EFFETTIVO</strong></td>
+        ${showCols.map(q=>fmtCell(rows[q].rispEff)).join('')}
+        ${fmtCell(totals.rispEff)}
+      </tr>
+      <tr class="ce-total">
+        <td><strong>RISPARMIO ATTESO</strong></td>
+        ${showCols.map(q=>fmtCell(rows[q].rispAtt)).join('')}
+        ${fmtCell(totals.rispAtt)}
+      </tr>
+    </tbody>`;
+
+  // ── Grafici ──────────────────────────────────────────────────
+  mk('ch-backlog', 'bar', {
+    labels: blLbl,
+    datasets: [{
+      label: 'Backlog cumulativo',
+      data: blVal,
+      backgroundColor: blVal.map(v => v >= 0 ? 'rgba(0,200,150,.7)' : 'rgba(240,72,90,.7)'),
+      borderRadius: 5, borderSkipped: false
+    }]
+  }, { scales: AX, plugins: { legend: { labels: { color: '#c8ccdf', font: { size: 9 } } } } });
+
+  mk('ch-risparmio', 'bar', {
+    labels: Qs,
+    datasets: [
+      { label: 'Risparmio atteso', data: Qs.map(q => rows[q].rispAtt), backgroundColor: 'rgba(91,106,245,.7)', borderRadius: 5, borderSkipped: false },
+      { label: 'Risparmio effettivo', data: Qs.map(q => rows[q].rispEff), backgroundColor: Qs.map(q => rows[q].rispEff >= 0 ? 'rgba(0,200,150,.7)' : 'rgba(240,72,90,.7)'), borderRadius: 5, borderSkipped: false }
+    ]
+  }, { scales: AX, plugins: { legend: { labels: { color: '#c8ccdf', font: { size: 9 } } } } });
+}
+
 
 // ── MODAL MODIFICA SINGOLA TRANSAZIONE ──────────────────────
 let editingTxIdx = null;

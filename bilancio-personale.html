@@ -234,7 +234,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
   .col-resizer:hover, .col-resizer.active { background:var(--acc); opacity:.5; }
 
   /* ── RESPONSIVE TABLET ───────────────────────────────────── */
-  @media (max-width: 1024px) {
+  @media (max-width: 1200px) {
     .shell { flex-direction: column; }
     nav { width: 100%; min-height: unset; flex-direction: row; flex-wrap: nowrap;
           overflow-x: auto; padding: 6px 10px; gap: 4px; border-right: none;
@@ -533,6 +533,14 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
 
   <!-- ── IMPORTA CSV ────────────────────────────────────────── -->
   <div class="section" id="sec-importa">
+    <div class="card" style="margin-bottom:16px;border:1px solid rgba(91,106,245,.3)">
+      <div class="card-ttl">📷 Screenshot Postepay</div>
+      <div class="card-sub">Carica gli screenshot nella cartella Drive dedicata, poi clicca Elabora</div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn" id="btn-postepay-ocr" onclick="processPostepayScreenshots()">📷 Elabora screenshot</button>
+        <span style="font-size:10px;color:var(--muted)">Le transazioni appariranno in Transazioni come nuove da approvare</span>
+      </div>
+    </div>
     <div class="card">
       <div class="card-ttl">Importa CSV</div>
       <div class="card-sub">Carica il file esportato dall'area personale Mediolanum o Postepay</div>
@@ -2196,6 +2204,24 @@ function getBudget(tipologia, budgetFromCsv) {
 
 function updateAcquirente(src) {
   // Feedback visivo opzionale
+}
+
+// ── ELABORA SCREENSHOT POSTEPAY ──────────────────────────────
+async function processPostepayScreenshots() {
+  if (!GS_URL) { toast('GS URL non configurato', 'ko'); return; }
+  const btn = document.getElementById('btn-postepay-ocr');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Elaboro…'; }
+  toast('Elaborazione screenshot Postepay…', 'info');
+  try {
+    const res = await gsCall('processPostepay', {});
+    const added = res.added || 0;
+    toast(added > 0 ? `✓ ${added} nuove transazioni Postepay` : 'Nessuna nuova transazione trovata', added > 0 ? 'ok' : 'info');
+    if (added > 0) { await gsLoad(); }
+  } catch(e) {
+    toast('Errore: ' + e.message, 'ko');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📷 Elabora screenshot'; }
+  }
 }
 
 function parseCSV(file) {

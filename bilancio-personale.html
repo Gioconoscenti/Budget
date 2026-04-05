@@ -282,8 +282,8 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     <button class="nav-btn" onclick="go('flussi',this)"><span class="ico">⇅</span>Flussi</button>
     <button class="nav-btn" onclick="go('categorie',this)"><span class="ico">◎</span>Categorie</button>
     <button class="nav-btn" onclick="go('transazioni',this)"><span class="ico">≡</span>Transazioni</button>
-    <button class="nav-btn" onclick="go('investimenti',this)"><span class="ico">◆</span>Investimenti</button>
     <button class="nav-btn" onclick="go('conto',this)"><span class="ico">📊</span>Conto Economico</button>
+    <button class="nav-btn" onclick="go('investimenti',this)"><span class="ico">◆</span>Investimenti</button>
   </div>
   <div class="nav-sep"></div>
   <div class="nav-section">
@@ -428,15 +428,82 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
 
   <!-- ── INVESTIMENTI ───────────────────────────────────────── -->
   <div class="section" id="sec-investimenti">
-    <div id="inv-kpi" class="krow"></div>
-    <div class="g2">
-      <div class="card"><div class="card-ttl">Composizione portafoglio</div><div class="card-sub">Per tipologia</div><div class="cw"><canvas id="ch-inv-pie"></canvas></div></div>
-      <div class="card"><div class="card-ttl">Top 10 posizioni</div><div class="card-sub">Per valore</div><div class="cw"><canvas id="ch-inv-bar"></canvas></div></div>
+
+    <!-- KPI -->
+    <div class="stat-grid" id="inv-kpi" style="margin-bottom:18px"></div>
+
+    <!-- Grafici -->
+    <div class="g2" style="margin-bottom:16px">
+      <div class="card"><div class="card-ttl">Per intestatario</div><div style="height:240px"><canvas id="ch-inv-int"></canvas></div></div>
+      <div class="card"><div class="card-ttl">Per tipo</div><div style="height:240px"><canvas id="ch-inv-tipo"></canvas></div></div>
     </div>
+    <div class="g2" style="margin-bottom:16px">
+      <div class="card"><div class="card-ttl">Per sede</div><div style="height:220px"><canvas id="ch-inv-sede"></canvas></div></div>
+      <div class="card"><div class="card-ttl">Per anno</div><div style="height:220px"><canvas id="ch-inv-anno"></canvas></div></div>
+    </div>
+
+    <!-- Tabella + form aggiunta -->
     <div class="card">
-      <div class="card-ttl">Dettaglio investimenti</div>
-      <div class="card-sub" id="inv-cnt">—</div>
-      <div class="tbl-wrap"><table><thead><tr id="inv-head"></tr></thead><tbody id="inv-body"></tbody></table></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="card-ttl" style="margin:0">Elenco investimenti</div>
+        <button class="btn sm" onclick="toggleInvForm()" style="margin-left:auto;font-size:9px">+ Aggiungi</button>
+      </div>
+
+      <!-- Form aggiunta (collassabile) -->
+      <div id="inv-form" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label style="font-size:9px;color:var(--muted);display:block;margin-bottom:4px">INTESTATARIO</label>
+            <input class="sbox" id="inv-f-int" placeholder="es. Gioacchino/Alessandra" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:9px;color:var(--muted);display:block;margin-bottom:4px">SEDE</label>
+            <select class="fb" id="inv-f-sede" style="width:100%">
+              <option value="Banca">Banca</option>
+              <option value="Posta">Posta</option>
+              <option value="Altro">Altro</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:9px;color:var(--muted);display:block;margin-bottom:4px">IMPORTO (€)</label>
+            <input class="sbox" id="inv-f-imp" type="number" min="0" placeholder="0" style="width:100%">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:9px;color:var(--muted);display:block;margin-bottom:4px">ANNO</label>
+            <input class="sbox" id="inv-f-anno" type="number" placeholder="2025" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:9px;color:var(--muted);display:block;margin-bottom:4px">TIPO</label>
+            <input class="sbox" id="inv-f-tipo" placeholder="es. Titoli, Minori, 3*4" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:9px;color:var(--muted);display:block;margin-bottom:4px">NOTE</label>
+            <input class="sbox" id="inv-f-note" placeholder="opzionale" style="width:100%">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn ghost sm" onclick="toggleInvForm()">Annulla</button>
+          <button class="btn sm" onclick="addInvestimento()">Salva su GS</button>
+        </div>
+      </div>
+
+      <!-- Tabella -->
+      <div class="tbl-wrap">
+        <table id="inv-table" style="width:100%;border-collapse:collapse;font-size:10px;font-family:'Space Mono',monospace">
+          <thead><tr>
+            <th style="text-align:left;padding:8px 10px;background:var(--s2);color:var(--muted);font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">INTESTATARIO</th>
+            <th style="padding:8px 10px;background:var(--s2);color:var(--muted);font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">SEDE</th>
+            <th style="text-align:right;padding:8px 10px;background:var(--s2);color:var(--muted);font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">IMPORTO</th>
+            <th style="text-align:center;padding:8px 10px;background:var(--s2);color:var(--muted);font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">ANNO</th>
+            <th style="padding:8px 10px;background:var(--s2);color:var(--muted);font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">TIPO</th>
+            <th style="padding:8px 10px;background:var(--s2);color:var(--muted);font-size:8px;letter-spacing:1px;border-bottom:1px solid var(--border)">NOTE</th>
+            <th style="padding:8px 10px;background:var(--s2);border-bottom:1px solid var(--border)"></th>
+          </tr></thead>
+          <tbody id="inv-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -765,7 +832,7 @@ const TITLES = {
   transazioni:'Transazioni', investimenti:'Investimenti',
   banche:'Connessioni Bancarie', importa:'Importa CSV', regole:'Regole Categorizzazione', conto:'Conto Economico'
 };
-const HIDE_TOPBAR = new Set(['banche','importa','regole','conto']);
+const HIDE_TOPBAR = new Set(['banche','importa','regole','conto','investimenti']);
 
 let allTx = [], allInv = [], filteredTx = [];
 let apiTx  = [];   // caricati da Google Sheets
@@ -1191,6 +1258,7 @@ function go(id, btn) {
   else if (id === 'importa') renderSrcSummary();
   else if (id === 'regole')  { setTimeout(() => { renderKwRules(); renderBudRules(); }, 50); }
   else if (id === 'conto')   { setTimeout(renderConto, 50); }
+  else if (id === 'investimenti') { loadInv(); }
   else runSection();
 }
 
@@ -2681,6 +2749,176 @@ function renderConto() {
       { label: 'Risparmio effettivo', data: Qs.map(q => rows[q].rispEff), backgroundColor: Qs.map(q => rows[q].rispEff >= 0 ? 'rgba(0,200,150,.7)' : 'rgba(240,72,90,.7)'), borderRadius: 5, borderSkipped: false }
     ]
   }, { scales: AX, plugins: { legend: { labels: { color: '#c8ccdf', font: { size: 9 } } } } });
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════
+//  INVESTIMENTI
+// ═══════════════════════════════════════════════════════════════
+const INV_INIT = [{"intestatario": "Gioacchino/Alessandra", "sede": "Banca", "importo": 10000, "anno": "2025", "tipo": "Titoli", "note": ""}, {"intestatario": "Gioacchino/Alessandra", "sede": "Banca", "importo": 34000, "anno": "2025", "tipo": "Investimenti assicurativi", "note": "2000 Antonino"}, {"intestatario": "Gioacchino/Alessandra", "sede": "Posta", "importo": 12000, "anno": "2019", "tipo": "3*4", "note": ""}, {"intestatario": "Gioacchino/Alessandra", "sede": "Posta", "importo": 2000, "anno": "2026", "tipo": "3*4", "note": "1000 Anto, 1000 Lori"}, {"intestatario": "Antonino", "sede": "Posta", "importo": 4000, "anno": "2023", "tipo": "Minori", "note": ""}, {"intestatario": "Antonino", "sede": "Posta", "importo": 1500, "anno": "2025", "tipo": "Minori", "note": ""}, {"intestatario": "Lorenzo", "sede": "Posta", "importo": 1500, "anno": "2022", "tipo": "Minori", "note": ""}, {"intestatario": "Lorenzo", "sede": "Posta", "importo": 2000, "anno": "2023", "tipo": "Minori", "note": ""}, {"intestatario": "Lorenzo", "sede": "Posta", "importo": 2500, "anno": "2025", "tipo": "Minori", "note": ""}];
+let invData = []; // caricato da GS
+
+function toggleInvForm() {
+  const f = document.getElementById('inv-form');
+  if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function loadInv() {
+  try {
+    const res = await gsCall('getInv', {});
+    invData = (res.rows || []).map(r => ({
+      intestatario: r.intestatario || '',
+      sede:         r.sede         || '',
+      importo:      parseFloat(r.importo) || 0,
+      anno:         r.anno         || '',
+      tipo:         r.tipo         || '',
+      note:         r.note         || '',
+      _idx:         parseInt(r._idx)
+    }));
+    // Se GS vuoto → carica dati iniziali da file Excel
+    if (!invData.length) {
+      for (const row of INV_INIT) {
+        await gsCall('addInv', { row });
+      }
+      const res2 = await gsCall('getInv', {});
+      invData = (res2.rows || []).map(r => ({
+        intestatario: r.intestatario, sede: r.sede,
+        importo: parseFloat(r.importo)||0, anno: r.anno,
+        tipo: r.tipo, note: r.note, _idx: parseInt(r._idx)
+      }));
+    }
+  } catch(e) {
+    console.warn('loadInv error:', e);
+  }
+  renderInv();
+}
+
+async function addInvestimento() {
+  const row = {
+    intestatario: document.getElementById('inv-f-int')?.value.trim()  || '',
+    sede:         document.getElementById('inv-f-sede')?.value        || '',
+    importo:      parseFloat(document.getElementById('inv-f-imp')?.value) || 0,
+    anno:         document.getElementById('inv-f-anno')?.value.trim() || '',
+    tipo:         document.getElementById('inv-f-tipo')?.value.trim() || '',
+    note:         document.getElementById('inv-f-note')?.value.trim() || '',
+  };
+  if (!row.intestatario || !row.importo) { toast('Intestatario e importo obbligatori', 'ko'); return; }
+  try {
+    await gsCall('addInv', { row });
+    toast('✓ Investimento aggiunto', 'ok');
+    toggleInvForm();
+    // Reset form
+    ['inv-f-int','inv-f-imp','inv-f-anno','inv-f-tipo','inv-f-note'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    await loadInv();
+  } catch(e) {
+    toast('Errore: ' + e.message, 'ko');
+  }
+}
+
+async function deleteInvestimento(idx) {
+  if (!confirm('Eliminare questo investimento?')) return;
+  try {
+    await gsCall('deleteInv', { idx });
+    toast('✓ Eliminato', 'ok');
+    await loadInv();
+  } catch(e) {
+    toast('Errore: ' + e.message, 'ko');
+  }
+}
+
+function renderInv() {
+  if (!invData.length) return;
+
+  // ── KPI ───────────────────────────────────────────────────────
+  const total = invData.reduce((s,r) => s + r.importo, 0);
+  const byInt = {};
+  invData.forEach(r => { byInt[r.intestatario] = (byInt[r.intestatario]||0) + r.importo; });
+  const kpiEl = document.getElementById('inv-kpi');
+  if (kpiEl) {
+    const kpis = [
+      { label: 'Totale investito', val: eur(total), color: 'var(--acc2)' },
+      ...Object.entries(byInt).map(([k,v]) => ({ label: k, val: eur(v), color: 'var(--muted2)' }))
+    ];
+    kpiEl.innerHTML = kpis.map(k => `
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px 18px">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">${k.label}</div>
+        <div style="font-size:18px;font-weight:700;font-family:'Space Mono',monospace;color:${k.color}">${k.val}</div>
+      </div>`).join('');
+  }
+
+  // ── GRAFICI ───────────────────────────────────────────────────
+  const group = (key) => {
+    const m = {};
+    invData.forEach(r => { m[r[key]] = (m[r[key]]||0) + r.importo; });
+    return m;
+  };
+
+  const mkDoughnut = (id, data) => {
+    const entries = Object.entries(data).sort((a,b)=>b[1]-a[1]);
+    mk(id, 'doughnut', {
+      labels: entries.map(e=>e[0]),
+      datasets: [{ data: entries.map(e=>e[1]), backgroundColor: pal(entries.length), borderColor:'#0e0f1a', borderWidth:3, hoverOffset:8 }]
+    }, { cutout:'55%', plugins:{ legend:{ position:'right', labels:{ color:'#c8ccdf', font:{ size:9 }, boxWidth:10 } } } });
+  };
+
+  const mkBar = (id, data) => {
+    const entries = Object.entries(data).sort((a,b)=>b[1]-a[1]);
+    mk(id, 'bar', {
+      labels: entries.map(e=>e[0]),
+      datasets: [{ label:'€', data: entries.map(e=>e[1]), backgroundColor: pal(entries.length), borderRadius:5, borderSkipped:false }]
+    }, { indexAxis:'y', scales:{ x:{ ticks:{ color:'#c8ccdf', font:{ size:8 }, callback:v=>'€'+v.toLocaleString('it-IT') }, grid:{ color:'rgba(255,255,255,.07)' } }, y:{ ticks:{ color:'#c8ccdf', font:{ size:9 } }, grid:{ display:false } } }, plugins:{ legend:{ display:false } } });
+  };
+
+  mkDoughnut('ch-inv-int',  group('intestatario'));
+  mkDoughnut('ch-inv-tipo', group('tipo'));
+  mkBar('ch-inv-sede', group('sede'));
+  mkBar('ch-inv-anno', group('anno'));
+
+  // ── TABELLA ───────────────────────────────────────────────────
+  const tbody = document.getElementById('inv-body');
+  if (!tbody) return;
+
+  // Raggruppa per intestatario per subtotali
+  const grouped = {};
+  invData.forEach(r => {
+    if (!grouped[r.intestatario]) grouped[r.intestatario] = [];
+    grouped[r.intestatario].push(r);
+  });
+
+  let rows_html = '';
+  Object.entries(grouped).forEach(([int, rows]) => {
+    const subtot = rows.reduce((s,r) => s+r.importo, 0);
+    rows_html += `<tr style="background:var(--s2)">
+      <td colspan="3" style="padding:8px 10px;font-size:10px;font-weight:700;color:var(--acc)">${int}</td>
+      <td colspan="3" style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;color:var(--acc2)">${eur(subtot)}</td>
+      <td style="padding:8px 10px"></td>
+    </tr>`;
+    rows.forEach(r => {
+      rows_html += `<tr style="border-bottom:1px solid var(--border2)">
+        <td style="padding:7px 10px;padding-left:20px;color:var(--muted2)">${r.intestatario}</td>
+        <td style="padding:7px 10px;text-align:center"><span class="badge">${r.sede}</span></td>
+        <td style="padding:7px 10px;text-align:right;color:var(--acc2);font-weight:600">${eur(r.importo)}</td>
+        <td style="padding:7px 10px;text-align:center;color:var(--muted2)">${r.anno}</td>
+        <td style="padding:7px 10px"><span class="badge">${r.tipo}</span></td>
+        <td style="padding:7px 10px;color:var(--muted);font-size:9px">${r.note||'—'}</td>
+        <td style="padding:7px 10px;text-align:center">
+          <button class="btn danger sm" style="padding:3px 8px;font-size:9px" onclick="deleteInvestimento(${r._idx})">✕</button>
+        </td>
+      </tr>`;
+    });
+  });
+
+  // Totale generale
+  rows_html += `<tr style="border-top:2px solid var(--border)">
+    <td colspan="2" style="padding:10px;font-weight:700;font-size:11px">TOTALE</td>
+    <td style="padding:10px;text-align:right;font-weight:700;font-size:12px;color:var(--acc2)">${eur(total)}</td>
+    <td colspan="4"></td>
+  </tr>`;
+
+  tbody.innerHTML = rows_html;
 }
 
 

@@ -233,62 +233,6 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
   }
   .col-resizer:hover, .col-resizer.active { background:var(--acc); opacity:.5; }
 
-  /* ── RESPONSIVE TABLET ───────────────────────────────────── */
-  @media (max-width: 1200px) {
-    .shell { flex-direction: column; }
-    nav { width: 100%; min-height: unset; flex-direction: row; flex-wrap: nowrap;
-          overflow-x: auto; padding: 6px 10px; gap: 4px; border-right: none;
-          border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
-          scrollbar-width: none; -ms-overflow-style: none; }
-    nav::-webkit-scrollbar { display: none; }
-    nav .nav-logo { display: none; }
-    nav .nav-section { display: contents; } /* mostra i figli diretti inline */
-    nav .nav-lbl { display: none; } /* nascondi le label ANALISI/DATI */
-    nav .nav-btn { padding: 8px 14px; font-size: 10px; flex: 0 0 auto; white-space: nowrap; }
-    nav .nav-btn .ico { display: none; }
-    .main { padding: 14px; }
-    .g2 { grid-template-columns: 1fr; }
-    .section { padding: 0; }
-    .topbar { flex-wrap: wrap; gap: 6px; padding: 10px 0; }
-    .stat-grid { grid-template-columns: repeat(2, 1fr); }
-    #sec-transazioni table { font-size: 9px; }
-    #sec-transazioni th, #sec-transazioni td { padding: 6px 4px; }
-    .tbl-wrap { overflow-x: auto; }
-    /* Conto Economico tablet */
-    #ce-table { font-size: 9px; }
-    #ce-table th, #ce-table td { padding: 5px 6px; }
-    #sec-conto .stat-grid { grid-template-columns: repeat(2, 1fr); }
-    #sec-conto [style*="display:flex"] { flex-wrap: wrap; }
-    /* Regole tablet */
-    #sec-regole .g2 { grid-template-columns: 1fr; }
-    /* Banche tablet */
-    .bank-grid { grid-template-columns: 1fr !important; }
-    /* Filtri transazioni tablet */
-    #sec-transazioni .filters { flex-wrap: wrap; }
-    #date-from, #date-to { width: 100px !important; }
-  }
-  @media (max-width: 768px) {
-    .stat-grid { grid-template-columns: 1fr 1fr; }
-    nav .nav-btn { padding: 5px 8px; font-size: 8px; }
-    .card { padding: 12px; }
-    .card-ttl { font-size: 11px; }
-    /* Conto economico telefono — tabella trimestrale scorribile */
-    #ce-table { font-size: 8px; min-width: 480px; }
-    #sec-conto .tbl-wrap { overflow-x: auto; }
-    #sec-conto .stat-grid { grid-template-columns: 1fr 1fr; }
-    .ce-kpi-value { font-size: 14px; }
-    /* Transazioni telefono */
-    #sec-transazioni table { min-width: 600px; }
-    /* Topbar filtri telefono */
-    .period-bar { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
-    .period-bar .fb { white-space: nowrap; flex-shrink: 0; }
-    /* Regole telefono */
-    .inline-sel { max-width: 120px !important; }
-    /* Input date */
-    #date-from, #date-to { width: 90px !important; font-size: 8px; }
-  }
-  @media (max-width: 480px) {
-    .stat-grid { grid-template-columns: 1fr; }
     nav .nav-btn { font-size: 7.5px; padding: 4px 6px; }
     .ce-kpi-value { font-size: 13px; }
     #sec-conto .stat-grid { grid-template-columns: 1fr; }

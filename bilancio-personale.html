@@ -2227,8 +2227,12 @@ async function processPostepayScreenshots() {
   try {
     const res = await gsCall('processPostepay', {});
     const added = res.added || 0;
-    toast(added > 0 ? `✓ ${added} nuove transazioni Postepay` : 'Nessuna nuova transazione trovata', added > 0 ? 'ok' : 'info');
-    if (added > 0) { await gsLoad(); }
+    if (added > 0) {
+      toast(`✓ ${added} transazioni Postepay scritte su GS — ricarico...`, 'ok');
+      await gsLoad();
+    } else {
+      toast('Elaborazione completata — nessuna nuova transazione (o già presenti su GS)', 'info');
+    }
   } catch(e) {
     toast('Errore: ' + e.message, 'ko');
   } finally {

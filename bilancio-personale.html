@@ -190,6 +190,69 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
   main{padding:20px 14px;}
 }
 
+  /* ── IPHONE (≤500px) ─────────────────────────────────────── */
+  @media(max-width:500px){
+    /* Nav → bottom bar fissa */
+    nav { display:flex !important; flex-direction:row; flex-wrap:nowrap;
+          width:100%; position:fixed; bottom:0; left:0; top:auto;
+          height:56px; padding:0; gap:0; border-right:none;
+          border-top:1px solid var(--border); background:var(--s1);
+          z-index:200; overflow-x:auto; overflow-y:hidden;
+          scrollbar-width:none; -ms-overflow-style:none;
+          -webkit-overflow-scrolling:touch; }
+    nav::-webkit-scrollbar { display:none; }
+    nav .nav-logo { display:none; }
+    nav .nav-section { display:contents; }
+    nav .nav-lbl { display:none; }
+    nav .nav-btn { display:inline-flex !important; flex-direction:column;
+          align-items:center; justify-content:center; flex:0 0 auto;
+          min-width:60px; height:56px; padding:4px 10px; font-size:8px;
+          gap:2px; border-radius:0; white-space:nowrap; }
+    nav .nav-btn .ico { display:inline !important; font-size:16px; line-height:1; }
+    /* Shell: colonna, main ha spazio per bottom nav */
+    .shell { flex-direction:column; }
+    main { padding:12px 10px 72px 10px; overflow-x:hidden; }
+    /* Topbar */
+    .topbar { flex-wrap:wrap; gap:4px; padding:8px 0; }
+    .period-bar { overflow-x:auto; flex-wrap:nowrap; gap:4px;
+                  padding-bottom:4px; scrollbar-width:none; }
+    .period-bar::-webkit-scrollbar { display:none; }
+    .period-bar .fb { flex-shrink:0; font-size:9px; padding:4px 8px; white-space:nowrap; }
+    .frow-label { font-size:8px; }
+    /* Grid → 1 colonna */
+    .g2,.g3 { grid-template-columns:1fr; }
+    .stat-grid { grid-template-columns:1fr 1fr; gap:8px; }
+    /* Card */
+    .card { padding:12px 10px; }
+    .card-ttl { font-size:11px; }
+    .card-sub { font-size:9px; }
+    /* KPI values */
+    .kpi-val { font-size:20px !important; }
+    /* Tabelle scrollabili */
+    .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    #sec-transazioni table { min-width:520px; font-size:8px; }
+    #sec-transazioni th, #sec-transazioni td { padding:5px 6px; }
+    #ce-table { min-width:400px; font-size:8px; }
+    #ce-table th, #ce-table td { padding:5px 6px; }
+    #inv-table { min-width:500px; font-size:8px; }
+    /* Sezioni attive visibili */
+    .section.active { display:block !important; }
+    /* Filtri dropdown */
+    .fb, select { font-size:10px; padding:5px 8px; }
+    /* Sbox */
+    .sbox { font-size:10px; padding:6px 10px; }
+    /* Grafici: altezza ridotta */
+    .cw-lg canvas, .cw canvas { max-height:220px; }
+    /* CE budget bar */
+    #ce-budget-list { font-size:9px; }
+    /* Bottoni */
+    .btn { font-size:9px; padding:6px 10px; }
+    .btn.sm { font-size:8px; padding:4px 8px; }
+    /* Nasconde colonne meno importanti nelle tabelle */
+    #sec-transazioni td:nth-child(5),
+    #sec-transazioni th:nth-child(5) { display:none; }
+  }
+
   /* ── RIGHE IN ATTESA DI APPROVAZIONE ─────────────────────── */
   .tx-pending { background: rgba(245,183,49,.06) !important; }
   .tx-pending:hover { background: rgba(245,183,49,.1) !important; }
@@ -352,6 +415,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       <button class="btn ghost sm" id="fagg-anno" onclick="setAggFlussi('anno')" style="font-size:9px;padding:4px 10px">Anno</button>
     </div>
     <div class="card"><div class="card-ttl">Entrate e Uscite mensili</div><div class="card-sub">Confronto periodo</div><div class="cw-lg"><canvas id="ch-bar2"></canvas></div></div>
+    <div class="card" style="margin-top:14px"><div class="card-ttl">Flusso di cassa</div><div class="card-sub">Entrate · Uscite · Risparmio per periodo</div><div class="cw-lg"><canvas id="ch-stacked"></canvas></div></div>
     <div class="g2">
       <div class="card"><div class="card-ttl">Saldo netto mensile</div><div class="card-sub">Differenza entrate − uscite</div><div class="cw"><canvas id="ch-net"></canvas></div></div>
       <div class="card"><div class="card-ttl">Andamento cumulativo</div><div class="card-sub">Saldo nel tempo</div><div class="cw"><canvas id="ch-line2"></canvas></div></div>
@@ -692,6 +756,13 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       <div class="tbl-wrap" style="margin-top:12px">
         <table id="ce-table" style="width:100%;border-collapse:collapse;font-size:10px;font-family:'Space Mono',monospace"></table>
       </div>
+    </div>
+
+    <!-- Budget vs Effettivo per categoria -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-ttl">Budget vs Effettivo per categoria</div>
+      <div class="card-sub" id="ce-budget-sub">Spese anno selezionato · solo conto ordinario</div>
+      <div id="ce-budget-list" style="margin-top:14px"></div>
     </div>
 
     <!-- Backlog chart -->
@@ -1595,6 +1666,20 @@ function renderFlussi() {
   ]},{scales:AX,plugins:{legend:{labels:{color:'#c8ccdf',font:{size:9}}}}});
 
   mk('ch-net','bar',{labels:lbl,datasets:[{label:'Saldo netto',data:keys.map(k=>+(bk[k].inc-bk[k].exp).toFixed(2)),backgroundColor:keys.map(k=>bk[k].inc>=bk[k].exp?'rgba(0,200,150,.7)':'rgba(240,72,90,.7)'),borderRadius:5,borderSkipped:false}]},{scales:AX,plugins:{legend:{labels:{color:'#c8ccdf',font:{size:9}}}}});
+
+  // Stacked: entrate / uscite / risparmio
+  const rispData = keys.map(k => +(bk[k].inc - bk[k].exp).toFixed(2));
+  mk('ch-stacked','bar',{labels:lbl,datasets:[
+    {label:'Entrate',  data:keys.map(k=>+bk[k].inc.toFixed(2)), backgroundColor:'rgba(0,200,150,.75)', stack:'s'},
+    {label:'Uscite',   data:keys.map(k=>-bk[k].exp.toFixed(2)), backgroundColor:'rgba(240,72,90,.75)',  stack:'s'},
+    {label:'Risparmio',data:rispData, type:'line', borderColor:'rgba(91,106,245,1)', backgroundColor:'rgba(91,106,245,.15)', fill:true, tension:.4, pointRadius:4, pointBackgroundColor:'rgba(91,106,245,1)', yAxisID:'y'}
+  ]},{
+    scales:{
+      x:{ stacked:true, ticks:{color:'#c8ccdf',font:{size:9}}, grid:{color:'rgba(255,255,255,.07)'} },
+      y:{ stacked:true, ticks:{color:'#c8ccdf',font:{size:9},callback:v=>'€'+v.toLocaleString('it-IT')}, grid:{color:'rgba(255,255,255,.07)'} }
+    },
+    plugins:{legend:{labels:{color:'#c8ccdf',font:{size:9}}}}
+  });
 
   // Cumulativo aggregato per periodo
   const cumBk = {};
@@ -2753,6 +2838,51 @@ function renderConto() {
       { label: 'Risparmio effettivo', data: Qs.map(q => rows[q].rispEff), backgroundColor: Qs.map(q => rows[q].rispEff >= 0 ? 'rgba(0,200,150,.7)' : 'rgba(240,72,90,.7)'), borderRadius: 5, borderSkipped: false }
     ]
   }, { scales: AX, plugins: { legend: { labels: { color: '#c8ccdf', font: { size: 9 } } } } });
+
+  // ── BUDGET VS EFFETTIVO PER CATEGORIA ────────────────────────
+  const budgetEl = document.getElementById('ce-budget-list');
+  if (budgetEl && Object.keys(userBudRules).length) {
+    // Aggrega spese anno corrente per tipologia (solo uscite ordinarie)
+    const speseTip = {};
+    txYear.filter(r => r.tipo === 'uscita').forEach(r => {
+      const t = r.tipologia || 'Altro';
+      speseTip[t] = (speseTip[t] || 0) + Math.abs(r.importo);
+    });
+
+    // Per ogni tipologia con budget definito, mostra barra
+    const rows_bud = Object.entries(userBudRules)
+      .map(([tip, budgetStr]) => {
+        const budMens = parseFloat(String(budgetStr).replace(',','.')) || 0;
+        const budAnno = budMens * 12;
+        const speso   = speseTip[tip] || 0;
+        return { tip, budAnno, speso, pct: budAnno > 0 ? speso/budAnno : 0 };
+      })
+      .filter(r => r.budAnno > 0 || r.speso > 0)
+      .sort((a,b) => b.speso - a.speso);
+
+    if (!rows_bud.length) {
+      budgetEl.innerHTML = '<p style="font-size:10px;color:var(--muted)">Nessun budget definito nelle Regole</p>';
+    } else {
+      budgetEl.innerHTML = rows_bud.map(r => {
+        const pct     = Math.min(r.pct, 1);
+        const over    = r.pct > 1;
+        const barClr  = over ? 'var(--red)' : r.pct > .8 ? '#e88c4a' : 'var(--acc2)';
+        const pctLbl  = r.budAnno > 0 ? (r.pct*100).toFixed(0)+'%' : '—';
+        return `<div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+            <span style="font-size:10px;color:var(--text)">${r.tip}</span>
+            <span style="font-size:9px;color:var(--muted2)">${eur(r.speso)} / ${r.budAnno>0?eur(r.budAnno):'—'} <span style="color:${barClr};font-weight:600">${pctLbl}</span></span>
+          </div>
+          <div style="background:var(--s2);border-radius:4px;height:6px;overflow:hidden">
+            <div style="height:100%;width:${(pct*100).toFixed(1)}%;background:${barClr};border-radius:4px;transition:.3s"></div>
+          </div>
+          ${over ? '<div style="font-size:8px;color:var(--red);margin-top:2px">⚠ Sforamento '+eur(r.speso-r.budAnno)+'</div>' : ''}
+        </div>`;
+      }).join('');
+    }
+  } else if (budgetEl) {
+    budgetEl.innerHTML = '<p style="font-size:10px;color:var(--muted)">Definisci i budget nella sezione Regole per vedere il confronto</p>';
+  }
 }
 
 

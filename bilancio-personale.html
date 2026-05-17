@@ -392,7 +392,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
         <select class="fb" id="yr-sel" onchange="setYear(this.value)"><option value="">Anno…</option></select>
         <div id="mo-multi-wrap" style="position:relative;display:inline-block">
           <button class="fb" id="mo-multi-btn" onclick="toggleMoPanel(event)" style="min-width:90px">Mese…</button>
-          <div id="mo-multi-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:300;background:var(--s1);border:1px solid var(--border2);border-radius:10px;padding:8px;width:200px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+          <div id="mo-multi-panel" onclick="event.stopPropagation()" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:300;background:var(--s1);border:1px solid var(--border2);border-radius:10px;padding:8px;width:200px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px" id="mo-multi-grid"></div>
             <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
               <button class="btn ghost sm" style="flex:1;font-size:9px" onclick="clearMonths()">Reset</button>
@@ -1541,14 +1541,21 @@ function buildMoGrid() {
     btn.dataset.mo = i + 1;
     btn.className = 'fb';
     btn.style.cssText = 'font-size:10px;padding:4px 2px;border-radius:6px;text-align:center;width:100%';
-    btn.onclick = () => toggleMo(i + 1, btn);
+    btn.onclick = (e) => { e.stopPropagation(); toggleMo(i + 1, btn); };
     grid.appendChild(btn);
   });
 }
 
 function toggleMo(n, btn) {
-  if (selectedMonths.has(n)) { selectedMonths.delete(n); btn.classList.remove('active'); btn.style.background = ''; }
-  else { selectedMonths.add(n); btn.classList.add('active'); btn.style.background = 'var(--acc)'; btn.style.borderColor = 'var(--acc)'; btn.style.color = '#fff'; }
+  if (selectedMonths.has(n)) {
+    selectedMonths.delete(n);
+    btn.classList.remove('active');
+    btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = '';
+  } else {
+    selectedMonths.add(n);
+    btn.classList.add('active');
+    btn.style.background = 'var(--acc)'; btn.style.borderColor = 'var(--acc)'; btn.style.color = '#fff';
+  }
   updateMoBtn();
 }
 
@@ -1562,15 +1569,16 @@ function updateMoBtn() {
 
 function clearMonths() {
   selectedMonths.clear();
-  document.querySelectorAll('#mo-multi-grid button').forEach(b => { b.classList.remove('active'); b.style.background=''; b.style.borderColor=''; b.style.color=''; });
+  document.querySelectorAll('#mo-multi-grid button').forEach(b => {
+    b.classList.remove('active'); b.style.background=''; b.style.borderColor=''; b.style.color='';
+  });
   updateMoBtn();
   applyFilters();
 }
 
 function applyMonths() {
+  // chiude il pannello e applica — anno rimane invariato
   document.getElementById('mo-multi-panel').style.display = 'none';
-  period = ''; yearF = monthF = '';
-  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
   applyFilters();
 }
 
@@ -1585,16 +1593,32 @@ document.addEventListener('click', () => {
   if (p) p.style.display = 'none';
 });
 
-function setPeriod(btn, p) {
-  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active'); period = p; yearF = ''; monthF = '';
+// Resetta tutti i filtri periodo in modo pulito
+function _resetPeriodState() {
+  period = ''; yearF = ''; monthF = '';
   selectedMonths.clear();
+  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#mo-multi-grid button').forEach(b => {
+    b.classList.remove('active'); b.style.background=''; b.style.borderColor=''; b.style.color='';
+  });
+  const yrSel = document.getElementById('yr-sel');
+  if (yrSel) yrSel.value = '';
   updateMoBtn();
-  document.querySelectorAll('#mo-multi-grid button').forEach(b => { b.classList.remove('active'); b.style.background=''; b.style.borderColor=''; b.style.color=''; });
-  document.getElementById('yr-sel').value = '';
+}
+
+function setPeriod(btn, p) {
+  _resetPeriodState();
+  btn.classList.add('active');
+  period = p;
   applyFilters();
 }
-function setYear(y) { yearF = y; period = ''; document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active')); applyFilters(); }
+
+function setYear(y) {
+  _resetPeriodState();
+  yearF = y;
+  applyFilters();
+}
+
 function setMonth(m) { monthF = m; applyFilters(); }
 
 function applyFilters() {
@@ -1604,23 +1628,36 @@ function applyFilters() {
   const cnt  = document.getElementById('cnt-f')?.value  || '';
   const src  = document.getElementById('src-f')?.value  || '';
   const q    = (document.getElementById('tx-q')?.value  || '').toLowerCase();
-
   const dateFrom = document.getElementById('date-from')?.value || '';
   const dateTo   = document.getElementById('date-to')?.value   || '';
 
   filteredTx = allTx.filter(r => {
     const d = r.data;
     if (!d || !(d instanceof Date) || isNaN(d)) return false;
-    if (period === 'thismonth' && (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth())) return false;
-    if (period === 'lastmonth') { const lm = new Date(now.getFullYear(), now.getMonth()-1, 1); if (d.getFullYear() !== lm.getFullYear() || d.getMonth() !== lm.getMonth()) return false; }
-    if (period === 'thisyear' && d.getFullYear() !== now.getFullYear()) return false;
-    if (yearF  && d.getFullYear() !== parseInt(yearF)) return false;
-    if (monthF && d.getMonth()+1 !== parseInt(monthF)) return false;
-    if (selectedMonths.size > 0 && !selectedMonths.has(d.getMonth() + 1)) return false;
+
+    // ── Filtri periodo (mutuamente esclusivi tranne anno+mesi) ──
+    if (period === 'thismonth') {
+      if (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) return false;
+    } else if (period === 'lastmonth') {
+      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      if (d.getFullYear() !== lm.getFullYear() || d.getMonth() !== lm.getMonth()) return false;
+    } else if (period === 'thisyear') {
+      if (d.getFullYear() !== now.getFullYear()) return false;
+    } else {
+      // Modalità libera: anno e/o mesi
+      if (yearF && d.getFullYear() !== parseInt(yearF)) return false;
+      if (selectedMonths.size > 0 && !selectedMonths.has(d.getMonth() + 1)) return false;
+    }
+
+    // ── Range date manuale ──
     if (dateFrom) { const df = parseD(dateFrom); if (df && d < df) return false; }
     if (dateTo)   { const dt = parseD(dateTo);   if (dt && d > dt) return false; }
+
+    // ── Filtri globali ──
     if (contoG && r.conto !== contoG) return false;
     if (acquirenteG && (r.acquirente||'').toLowerCase() !== acquirenteG) return false;
+
+    // ── Filtri tabella transazioni ──
     if (tipo && r.tipo !== tipo) return false;
     if (cat  && r.tipologia !== cat) return false;
     if (cnt  && r.conto !== cnt) return false;
@@ -1638,7 +1675,6 @@ function applyFilters() {
   curPage = 1;
   runSection();
 }
-// ── RESIZE COLONNE ───────────────────────────────────────────
 function initColResize() {
   const table = document.querySelector('#sec-transazioni table');
   if (!table) return;
@@ -3497,7 +3533,7 @@ Rispondi con dati precisi dai flussi mensili sopra. Sii conciso ma completo (max
 
   try {
     const GEMINI_KEY = 'AIzaSyA_-RrqlX4y4f1ZhAu8MsjrLXv2BEbafzU';
-    const MODELS = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+    const MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
     let data, res;
     for (const model of MODELS) {
       res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`, {

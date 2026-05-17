@@ -296,7 +296,6 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
   }
   .col-resizer:hover, .col-resizer.active { background:var(--acc); opacity:.5; }
 
-    nav .nav-btn { font-size: 7.5px; padding: 4px 6px; }
     .ce-kpi-value { font-size: 13px; }
     #sec-conto .stat-grid { grid-template-columns: 1fr; }
   }
@@ -1487,9 +1486,7 @@ function fillDrops() {
   yrs.forEach(y => { const o = new Option(y, y); if (String(y) === cv) o.selected = true; ys.add(o); });
 
   const mos = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-  const ms = document.getElementById('mo-sel'), cm = ms.value;
-  ms.innerHTML = '<option value="">Mese…</option>';
-  mos.forEach((m, i) => { const o = new Option(m, i+1); if (String(i+1) === cm) o.selected = true; ms.add(o); });
+  // mo-sel rimosso — ora si usa il pannello multi-mese
 
   const cats = [...new Set(allTx.map(r => r.tipologia))].sort();
   const cf = document.getElementById('cat-f'), ccf = cf.value;

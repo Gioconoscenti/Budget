@@ -392,7 +392,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
         <select class="fb" id="yr-sel" onchange="setYear(this.value)"><option value="">Anno…</option></select>
         <div id="mo-multi-wrap" style="position:relative;display:inline-block">
           <button class="fb" id="mo-multi-btn" onclick="toggleMoPanel(event)" style="min-width:90px">Mese…</button>
-          <div id="mo-multi-panel" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:300;background:var(--s1);border:1px solid var(--border2);border-radius:10px;padding:8px;width:220px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+          <div id="mo-multi-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:300;background:var(--s1);border:1px solid var(--border2);border-radius:10px;padding:8px;width:200px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px" id="mo-multi-grid"></div>
             <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
               <button class="btn ghost sm" style="flex:1;font-size:9px" onclick="clearMonths()">Reset</button>
@@ -3497,16 +3497,21 @@ Rispondi con dati precisi dai flussi mensili sopra. Sii conciso ma completo (max
 
   try {
     const GEMINI_KEY = 'AIzaSyA_-RrqlX4y4f1ZhAu8MsjrLXv2BEbafzU';
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1000, temperature: 0.3 }
-      })
-    });
-
-    const data = await res.json();
+    const MODELS = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+    let data, res;
+    for (const model of MODELS) {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 1000, temperature: 0.3 }
+        })
+      });
+      data = await res.json();
+      if (res.ok && data?.candidates?.[0]?.content?.parts?.[0]?.text) break;
+    }
+    if (!res.ok) throw new Error(`API error ${res.status}: ${data?.error?.message || JSON.stringify(data)}`);
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Nessuna risposta ricevuta.';
 
     // Render markdown-lite

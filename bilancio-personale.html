@@ -21,8 +21,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 /* NAV */
 nav{width:220px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:32px 0;position:sticky;top:0;height:100vh;overflow-y:auto;}
 .nav-logo{padding:0 24px 28px;border-bottom:1px solid var(--border);margin-bottom:20px;}
-.nav-logo h1{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.5px;line-height:1.2;background:linear-gradient(135deg,var(--text),var(--acc));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.nav-logo p{color:var(--muted);font-size:9px;letter-spacing:1.5px;margin-top:4px;}
+.nav-logo h1{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.5px;line-height:1.2;background:linear-gradient(135deg,var(--text),var(--acc));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-logo p{color:var(--muted);font-size:11px;letter-spacing:1.5px;margin-top:4px;}
 .nav-section{padding:0 12px;margin-bottom:4px;}
 .nav-lbl{font-size:10px;letter-spacing:2px;color:var(--muted);padding:0 8px;margin-bottom:6px;}
 .nav-btn{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--muted2);font-family:'Space Mono',monospace;font-size:13px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all .15s;text-align:left;letter-spacing:.2px;}
@@ -301,6 +301,20 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     #sec-conto .stat-grid { grid-template-columns: 1fr; }
   }
 
+  /* ── AI PANEL ────────────────────────────────────────────── */
+  .ai-chip {
+    background: var(--s2); border: 1px solid var(--border2);
+    color: var(--muted2); font-family: 'Space Mono', monospace;
+    font-size: 11px; padding: 6px 13px; border-radius: 50px;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .ai-chip:hover { border-color: var(--acc); color: var(--acc); background: rgba(91,106,245,.08); }
+  #ai-answer strong { color: var(--acc2); font-weight: 700; }
+  #ai-answer ul { padding-left: 20px; margin: 8px 0; }
+  #ai-answer li { margin-bottom: 5px; }
+  #ai-answer h4 { font-family: 'Syne', sans-serif; font-size: 14px; color: var(--acc); margin: 14px 0 6px; }
+  #ai-panel { border-color: rgba(91,106,245,.25); }
+
   /* ── CONTO ECONOMICO ─────────────────────────────────────── */
   #ce-table th {
     background: var(--s2); color: var(--muted); font-size: 11px;
@@ -377,19 +391,27 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
         <button class="fb"        data-p="lastmonth" onclick="setPeriod(this,'lastmonth')">Mese scorso</button>
         <button class="fb active" data-p="thisyear"  onclick="setPeriod(this,'thisyear')">Quest'anno</button>
         <select class="fb" id="yr-sel" onchange="setYear(this.value)"><option value="">Anno…</option></select>
-        <select class="fb" id="mo-sel" onchange="setMonth(this.value)"><option value="">Mese…</option></select>
+        <div id="mo-multi-wrap" style="position:relative;display:inline-block">
+          <button class="fb" id="mo-multi-btn" onclick="toggleMoPanel(event)" style="min-width:90px">Mese…</button>
+          <div id="mo-multi-panel" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:300;background:var(--s1);border:1px solid var(--border2);border-radius:10px;padding:8px;width:220px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px" id="mo-multi-grid"></div>
+            <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+              <button class="btn ghost sm" style="flex:1;font-size:9px" onclick="clearMonths()">Reset</button>
+              <button class="btn sm" style="flex:1;font-size:9px" onclick="applyMonths()">Applica</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="frow" id="global-filters">
       <span class="frow-label">Filtra per</span>
       <select class="fb" id="g-cnt-sel" onchange="setGlobal('contoG',this.value)"><option value="">Tutti i conti</option></select>
-      <select class="fb" id="g-acq-sel" onchange="setGlobal('acquirenteG',this.value)"><option value="">Tutti gli acquirenti</option></select>
-      <select class="fb" id="g-src-sel" onchange="setGlobal('sourceG',this.value)">
-        <option value="">Tutte le fonti</option>
-        <option value="csv">📥 CSV importato</option>
-        <option value="mediolanum">🏦 Mediolanum</option>
-        <option value="postepay">📮 Postepay</option>
-      </select>
+      <div style="display:flex;gap:4px;align-items:center">
+        <span style="font-size:10px;color:var(--muted)">Acquirente:</span>
+        <button class="btn sm acq-btn" id="acq-all" onclick="setAcquirente('')"           style="font-size:9px;padding:4px 10px;background:var(--acc)">Tutti</button>
+        <button class="btn ghost sm acq-btn" id="acq-gio" onclick="setAcquirente('gioacchino')" style="font-size:9px;padding:4px 10px">Gioacchino</button>
+        <button class="btn ghost sm acq-btn" id="acq-ale" onclick="setAcquirente('alessandra')" style="font-size:9px;padding:4px 10px">Alessandra</button>
+      </div>
     </div>
   </div>
 
@@ -409,6 +431,53 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     <div class="g2">
       <div class="card"><div class="card-ttl">Top categorie di spesa</div><div class="card-sub">Prime 8 tipologie</div><div id="cat-bars"></div></div>
       <div class="card"><div class="card-ttl">Ripartizione tipologie</div><div class="card-sub">Distribuzione uscite</div><div class="cw"><canvas id="ch-donut"></canvas></div></div>
+    </div>
+
+    <!-- ── ANALISI AI ─────────────────────────────────────────── -->
+    <div class="card" id="ai-panel" style="margin-top:4px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div>
+          <div class="card-ttl" style="margin:0;display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">✦</span> Analisi AI
+          </div>
+          <div class="card-sub" style="margin:4px 0 0">Fai una domanda sui tuoi dati finanziari</div>
+        </div>
+      </div>
+
+      <!-- Domande rapide -->
+      <div id="ai-chips" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">
+        <button class="ai-chip" onclick="askAI(this.dataset.q)" data-q="Qual è stato il mese con il maggior introito nell'ultimo anno?">📈 Mese con più introito</button>
+        <button class="ai-chip" onclick="askAI(this.dataset.q)" data-q="Quali sono state le maggiori spese straordinarie?">⚡ Maggiori spese straordinarie</button>
+        <button class="ai-chip" onclick="askAI(this.dataset.q)" data-q="Qual è la categoria in cui spendiamo di più?">🏆 Categoria più costosa</button>
+        <button class="ai-chip" onclick="askAI(this.dataset.q)" data-q="Come si confronta il risparmio di quest'anno rispetto all'anno scorso?">📊 Risparmio anno su anno</button>
+        <button class="ai-chip" onclick="askAI(this.dataset.q)" data-q="Quali mesi ho avuto saldo negativo?">🔴 Mesi in rosso</button>
+        <button class="ai-chip" onclick="askAI(this.dataset.q)" data-q="Dammi un'analisi delle spese ricorrenti fisse mensili">🔁 Spese fisse ricorrenti</button>
+        <button class="ai-chip" onclick="askAI(this.dataset.q)" data-q="Qual è il trend delle spese alimentari negli ultimi 12 mesi?">🛒 Trend spese alimentari</button>
+        <button class="ai-chip" onclick="askAI(this.dataset.q)" data-q="Suggeriscimi dove potrei risparmiare basandoti sui miei dati">💡 Dove risparmiare</button>
+      </div>
+
+      <!-- Input libero -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <input id="ai-input" class="sbox" style="flex:1;width:auto" placeholder="Scrivi la tua domanda sui dati finanziari…" onkeydown="if(event.key==='Enter')askAI()">
+        <button class="btn" id="ai-send" onclick="askAI()" style="padding:7px 18px;letter-spacing:.3px">Chiedi ✦</button>
+      </div>
+
+      <!-- Risposta -->
+      <div id="ai-response" style="display:none">
+        <div style="height:1px;background:var(--border);margin-bottom:14px"></div>
+        <div id="ai-question-echo" style="font-size:11px;color:var(--muted);margin-bottom:10px;font-style:italic"></div>
+        <div id="ai-answer" style="font-size:13px;line-height:1.85;color:var(--text)"></div>
+        <div id="ai-footer" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:10px;color:var(--muted)" id="ai-stats"></span>
+          <button class="btn ghost sm" onclick="clearAI()" style="font-size:9px">Nuova domanda</button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="ai-loading" style="display:none;text-align:center;padding:20px 0">
+        <div class="spin" style="margin:0 auto 10px"></div>
+        <div style="font-size:11px;color:var(--muted)">Analisi in corso…</div>
+      </div>
     </div>
   </div>
 
@@ -724,16 +793,16 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
     <!-- Barra controlli -->
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
       <select class="fb" id="ce-year" onchange="renderConto()" style="min-width:100px"></select>
-      <span style="font-size:10px;color:var(--muted)">Anno</span>
+      <span style="font-size:10px;color:var(--muted)">Anno · Solo conto ordinario</span>
       <div style="display:flex;gap:4px;margin-left:8px">
         <button class="btn sm" id="ce-agg-trim" onclick="setCEAgg('trim')" style="font-size:9px;padding:4px 10px;background:var(--acc)">Trimestre</button>
         <button class="btn ghost sm" id="ce-agg-anno" onclick="setCEAgg('anno')" style="font-size:9px;padding:4px 10px">Anno</button>
       </div>
       <div style="display:flex;gap:4px;margin-left:12px;align-items:center">
-        <span style="font-size:10px;color:var(--muted)">Conto:</span>
-        <button class="btn sm" id="ce-cnt-ord"  onclick="setCEConto('ordinario')"     style="font-size:9px;padding:4px 10px;background:var(--acc)">Ordinario</button>
-        <button class="btn ghost sm" id="ce-cnt-str"  onclick="setCEConto('straordinario')" style="font-size:9px;padding:4px 10px">Straordinario</button>
-        <button class="btn ghost sm" id="ce-cnt-all"  onclick="setCEConto('tutti')"         style="font-size:9px;padding:4px 10px">Tutti</button>
+        <span style="font-size:10px;color:var(--muted)">Acquirente:</span>
+        <button class="btn sm ce-acq-btn" id="ce-acq-all" onclick="setCEAcquirente('')"           style="font-size:9px;padding:4px 10px;background:var(--acc)">Tutti</button>
+        <button class="btn ghost sm ce-acq-btn" id="ce-acq-gio" onclick="setCEAcquirente('gioacchino')" style="font-size:9px;padding:4px 10px">Gioacchino</button>
+        <button class="btn ghost sm ce-acq-btn" id="ce-acq-ale" onclick="setCEAcquirente('alessandra')" style="font-size:9px;padding:4px 10px">Alessandra</button>
       </div>
       <div style="margin-left:auto">
         <button class="btn ghost sm" onclick="toggleCESettings()" style="font-size:9px">⚙ Spese fisse manuali</button>
@@ -768,13 +837,6 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
       <div class="tbl-wrap" style="margin-top:12px">
         <table id="ce-table" style="width:100%;border-collapse:collapse;font-size:10px;font-family:'Space Mono',monospace"></table>
       </div>
-    </div>
-
-    <!-- Budget vs Effettivo per categoria -->
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-ttl">Budget vs Effettivo per categoria</div>
-      <div class="card-sub" id="ce-budget-sub">Spese anno selezionato · solo conto ordinario</div>
-      <div id="ce-budget-list" style="margin-top:14px"></div>
     </div>
 
     <!-- Backlog chart -->
@@ -1442,11 +1504,6 @@ function fillDrops() {
   const gcof = document.getElementById('g-cnt-sel'), gcv = gcof.value;
   gcof.innerHTML = '<option value="">Conto…</option>';
   conti.forEach(c => { const o = new Option(c, c); if (c === gcv) o.selected = true; gcof.add(o); });
-
-  const acq = [...new Set(allTx.map(r => r.acquirente).filter(Boolean))].sort();
-  const gacf = document.getElementById('g-acq-sel'), gav = gacf.value;
-  gacf.innerHTML = '<option value="">Acquirente…</option>';
-  acq.forEach(a => { const o = new Option(a, a); if (a === gav) o.selected = true; gacf.add(o); });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1458,10 +1515,86 @@ function setGlobal(key, val) {
   else if (key === 'sourceG') sourceG = val;
   applyFilters();
 }
+
+// Acquirente globale a pulsanti
+function setAcquirente(val) {
+  acquirenteG = val;
+  ['all','gio','ale'].forEach(k => {
+    const map = { all:'', gio:'gioacchino', ale:'alessandra' };
+    const b = document.getElementById('acq-' + k);
+    if (!b) return;
+    const active = map[k] === val;
+    b.className = active ? 'btn sm acq-btn' : 'btn ghost sm acq-btn';
+    b.style.background = active ? 'var(--acc)' : '';
+  });
+  applyFilters();
+}
+
+// ── MULTI-MESE ─────────────────────────────────────────────────
+let selectedMonths = new Set(); // set di numeri 1-12
+const MESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+
+function buildMoGrid() {
+  const grid = document.getElementById('mo-multi-grid');
+  if (!grid || grid.dataset.built) return;
+  grid.dataset.built = '1';
+  MESI.forEach((m, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = m;
+    btn.dataset.mo = i + 1;
+    btn.className = 'fb';
+    btn.style.cssText = 'font-size:10px;padding:4px 2px;border-radius:6px;text-align:center;width:100%';
+    btn.onclick = () => toggleMo(i + 1, btn);
+    grid.appendChild(btn);
+  });
+}
+
+function toggleMo(n, btn) {
+  if (selectedMonths.has(n)) { selectedMonths.delete(n); btn.classList.remove('active'); btn.style.background = ''; }
+  else { selectedMonths.add(n); btn.classList.add('active'); btn.style.background = 'var(--acc)'; btn.style.borderColor = 'var(--acc)'; btn.style.color = '#fff'; }
+  updateMoBtn();
+}
+
+function updateMoBtn() {
+  const btn = document.getElementById('mo-multi-btn');
+  if (!btn) return;
+  if (selectedMonths.size === 0) { btn.textContent = 'Mese…'; btn.classList.remove('active'); }
+  else if (selectedMonths.size === 1) { btn.textContent = MESI[[...selectedMonths][0]-1]; btn.classList.add('active'); }
+  else { btn.textContent = selectedMonths.size + ' mesi'; btn.classList.add('active'); }
+}
+
+function clearMonths() {
+  selectedMonths.clear();
+  document.querySelectorAll('#mo-multi-grid button').forEach(b => { b.classList.remove('active'); b.style.background=''; b.style.borderColor=''; b.style.color=''; });
+  updateMoBtn();
+  applyFilters();
+}
+
+function applyMonths() {
+  document.getElementById('mo-multi-panel').style.display = 'none';
+  period = ''; yearF = monthF = '';
+  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
+  applyFilters();
+}
+
+function toggleMoPanel(e) {
+  e.stopPropagation();
+  buildMoGrid();
+  const p = document.getElementById('mo-multi-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', () => {
+  const p = document.getElementById('mo-multi-panel');
+  if (p) p.style.display = 'none';
+});
+
 function setPeriod(btn, p) {
   document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
   btn.classList.add('active'); period = p; yearF = ''; monthF = '';
-  document.getElementById('yr-sel').value = ''; document.getElementById('mo-sel').value = '';
+  selectedMonths.clear();
+  updateMoBtn();
+  document.querySelectorAll('#mo-multi-grid button').forEach(b => { b.classList.remove('active'); b.style.background=''; b.style.borderColor=''; b.style.color=''; });
+  document.getElementById('yr-sel').value = '';
   applyFilters();
 }
 function setYear(y) { yearF = y; period = ''; document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active')); applyFilters(); }
@@ -1486,11 +1619,11 @@ function applyFilters() {
     if (period === 'thisyear' && d.getFullYear() !== now.getFullYear()) return false;
     if (yearF  && d.getFullYear() !== parseInt(yearF)) return false;
     if (monthF && d.getMonth()+1 !== parseInt(monthF)) return false;
+    if (selectedMonths.size > 0 && !selectedMonths.has(d.getMonth() + 1)) return false;
     if (dateFrom) { const df = parseD(dateFrom); if (df && d < df) return false; }
     if (dateTo)   { const dt = parseD(dateTo);   if (dt && d > dt) return false; }
     if (contoG && r.conto !== contoG) return false;
-    if (acquirenteG && r.acquirente !== acquirenteG) return false;
-    if (sourceG && r.source !== sourceG) return false;
+    if (acquirenteG && (r.acquirente||'').toLowerCase() !== acquirenteG) return false;
     if (tipo && r.tipo !== tipo) return false;
     if (cat  && r.tipologia !== cat) return false;
     if (cnt  && r.conto !== cnt) return false;
@@ -2586,7 +2719,7 @@ function renderCEFixedList() {
 }
 
 let ceAgg = 'trim'; // 'trim' o 'anno'
-let ceConto = 'ordinario'; // 'ordinario' | 'straordinario' | 'tutti'
+let ceAcquirente = ''; // '' = tutti | 'gioacchino' | 'alessandra'
 let ceExpandState = {}; // stato espansione righe conto economico
 
 function setCEAgg(v) {
@@ -2609,6 +2742,19 @@ function setCEConto(v) {
     if (!b) return;
     const active = map[k] === v;
     b.className = active ? 'btn sm' : 'btn ghost sm';
+    b.style.background = active ? 'var(--acc)' : '';
+  });
+  renderConto();
+}
+
+function setCEAcquirente(val) {
+  ceAcquirente = val;
+  ['all','gio','ale'].forEach(k => {
+    const map = { all:'', gio:'gioacchino', ale:'alessandra' };
+    const b = document.getElementById('ce-acq-' + k);
+    if (!b) return;
+    const active = map[k] === val;
+    b.className = active ? 'btn sm ce-acq-btn' : 'btn ghost sm ce-acq-btn';
     b.style.background = active ? 'var(--acc)' : '';
   });
   renderConto();
@@ -2639,11 +2785,12 @@ function renderConto() {
     return q;
   };
 
-  // Transazioni anno corrente e precedente — filtro per conto selezionato
+  // Transazioni anno corrente e precedente — solo conto ORDINARIO
   const isOrd = r => {
-    if (ceConto === 'tutti') return true;
     const c = (r.conto || 'ordinario').toLowerCase();
-    return c === ceConto;
+    if (c !== 'ordinario') return false;
+    if (ceAcquirente && (r.acquirente||'').toLowerCase() !== ceAcquirente) return false;
+    return true;
   };
   const txYear  = allTx.filter(r => { const d = r.data instanceof Date ? r.data : parseD(r.dataStr); return d && d.getFullYear() === year     && isOrd(r); });
   const txPrev  = allTx.filter(r => { const d = r.data instanceof Date ? r.data : parseD(r.dataStr); return d && d.getFullYear() === prevYear  && isOrd(r); });
@@ -2755,8 +2902,8 @@ function renderConto() {
       </div>`).join('');
   }
 
-  const contoLabel = ceConto === 'tutti' ? 'Tutti i conti' : `Conto ${ceConto}`;
-  document.getElementById('ce-subtitle').textContent = `Anno ${year} · ${contoLabel} · Introito atteso basato su media ${prevYear}`;
+  const acqLabel = ceAcquirente ? ` · ${ceAcquirente.charAt(0).toUpperCase()+ceAcquirente.slice(1)}` : '';
+  document.getElementById('ce-subtitle').textContent = `Anno ${year} · Solo conto ordinario${acqLabel} · Introito atteso basato su media ${prevYear}`;
 
   // ── Render Tabella ───────────────────────────────────────────
   const tbl = document.getElementById('ce-table');
@@ -3244,6 +3391,156 @@ function exportAllCSV() {
   a.download = 'bilancio_export_'+new Date().toISOString().split('T')[0]+'.csv';
   a.click();
   toast('CSV esportato', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ANALISI AI
+// ═══════════════════════════════════════════════════════════════
+function buildFinancialContext() {
+  if (!allTx || !allTx.length) return 'Nessuna transazione disponibile.';
+
+  const now = new Date();
+  const fmt = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+
+  // Aggregazione mensile
+  const byMonth = {};
+  allTx.forEach(r => {
+    const d = r.data instanceof Date ? r.data : parseD(r.dataStr);
+    if (!d) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (!byMonth[key]) byMonth[key] = { entrate: 0, uscite: 0, tx: [] };
+    if (r.tipo === 'entrata') byMonth[key].entrate += r.importo;
+    else byMonth[key].uscite += Math.abs(r.importo);
+    byMonth[key].tx.push(r);
+  });
+
+  // Aggregazione per tipologia
+  const byTip = {};
+  allTx.filter(r => r.tipo === 'uscita').forEach(r => {
+    const t = r.tipologia || 'Altro';
+    byTip[t] = (byTip[t] || 0) + Math.abs(r.importo);
+  });
+
+  // Aggregazione per conto
+  const byConto = {};
+  allTx.forEach(r => {
+    const c = r.conto || 'ordinario';
+    if (!byConto[c]) byConto[c] = { entrate: 0, uscite: 0, n: 0 };
+    if (r.tipo === 'entrata') byConto[c].entrate += r.importo;
+    else byConto[c].uscite += Math.abs(r.importo);
+    byConto[c].n++;
+  });
+
+  // Aggregazione per acquirente
+  const byAcq = {};
+  allTx.filter(r => r.tipo === 'uscita' && r.acquirente).forEach(r => {
+    const a = r.acquirente;
+    byAcq[a] = (byAcq[a] || 0) + Math.abs(r.importo);
+  });
+
+  // Top spese singole
+  const topUscite = [...allTx].filter(r => r.tipo === 'uscita')
+    .sort((a,b) => Math.abs(b.importo) - Math.abs(a.importo))
+    .slice(0, 20)
+    .map(r => `${r.dataStr} | ${r.descrizione} | ${fmt(Math.abs(r.importo))} | ${r.tipologia} | conto: ${r.conto||'ordinario'}`);
+
+  const mesiSorted = Object.entries(byMonth).sort((a,b) => a[0].localeCompare(b[0]));
+  const tipSorted  = Object.entries(byTip).sort((a,b) => b[1]-a[1]).slice(0,20);
+  const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+  const summary = `
+RIEPILOGO FINANZIARIO PERSONALE — dati al ${now.toLocaleDateString('it-IT')}
+Periodo coperto: ${mesiSorted[0]?.[0] || '—'} → ${mesiSorted[mesiSorted.length-1]?.[0] || '—'}
+Totale transazioni: ${allTx.length}
+
+FLUSSI MENSILI (anno-mese | entrate | uscite | saldo):
+${mesiSorted.map(([k,v]) => {
+  const [y,m] = k.split('-');
+  return `${MESI_IT[+m-1]} ${y}: entrate ${fmt(v.entrate)}, uscite ${fmt(v.uscite)}, saldo ${fmt(v.entrate-v.uscite)}`;
+}).join('\n')}
+
+TOP 20 CATEGORIE DI SPESA (totale periodo):
+${tipSorted.map(([t,v]) => `  ${t}: ${fmt(v)}`).join('\n')}
+
+SPESE PER CONTO:
+${Object.entries(byConto).map(([c,v]) => `  ${c}: entrate ${fmt(v.entrate)}, uscite ${fmt(v.uscite)}`).join('\n')}
+
+SPESE PER ACQUIRENTE:
+${Object.entries(byAcq).map(([a,v]) => `  ${a}: ${fmt(v)}`).join('\n')}
+
+TOP 20 TRANSAZIONI SINGOLE PIÙ ALTE (data | descrizione | importo | categoria | conto):
+${topUscite.join('\n')}
+`.trim();
+
+  return summary;
+}
+
+async function askAI(question) {
+  const input = document.getElementById('ai-input');
+  const q = question || input?.value?.trim();
+  if (!q) { toast('Scrivi una domanda prima', 'ko'); return; }
+
+  // UI → loading
+  document.getElementById('ai-response').style.display = 'none';
+  document.getElementById('ai-loading').style.display = 'block';
+  document.getElementById('ai-send').disabled = true;
+
+  const ctx = buildFinancialContext();
+  const prompt = `Sei un assistente finanziario personale. Analizza i seguenti dati finanziari e rispondi alla domanda dell'utente in modo preciso, usando numeri concreti dal dataset.
+
+Formatta la risposta in modo chiaro: usa **testo in grassetto** per i numeri chiave e le conclusioni importanti. Usa elenchi puntati dove appropriato. Rispondi in italiano.
+
+=== DATI FINANZIARI ===
+${ctx}
+
+=== DOMANDA ===
+${q}
+
+Rispondi con dati precisi dai flussi mensili sopra. Sii conciso ma completo (max 300 parole).`;
+
+  try {
+    const GEMINI_KEY = 'AIzaSyA_-RrqlX4y4f1ZhAu8MsjrLXv2BEbafzU';
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.3 }
+      })
+    });
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Nessuna risposta ricevuta.';
+
+    // Render markdown-lite
+    const html = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^#{1,4}\s+(.+)$/gm, '<h4>$1</h4>')
+      .replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>)/gs, m => `<ul>${m}</ul>`)
+      .replace(/\n{2,}/g, '</p><p>')
+      .replace(/^(?!<[hul])(.+)$/gm, (m) => m.trim() ? m : '')
+      .replace(/<\/ul>\s*<ul>/g, '');
+
+    document.getElementById('ai-question-echo').textContent = '❝ ' + q + ' ❞';
+    document.getElementById('ai-answer').innerHTML = '<p>' + html + '</p>';
+    document.getElementById('ai-stats').textContent =
+      `Analisi su ${allTx.length} transazioni · ${new Date().toLocaleTimeString('it-IT')}`;
+
+    document.getElementById('ai-loading').style.display = 'none';
+    document.getElementById('ai-response').style.display = 'block';
+    if (input) input.value = '';
+  } catch(e) {
+    document.getElementById('ai-loading').style.display = 'none';
+    toast('Errore API: ' + e.message, 'ko');
+  }
+  document.getElementById('ai-send').disabled = false;
+}
+
+function clearAI() {
+  document.getElementById('ai-response').style.display = 'none';
+  document.getElementById('ai-input').value = '';
+  document.getElementById('ai-input').focus();
 }
 
 // ═══════════════════════════════════════════════════════════════

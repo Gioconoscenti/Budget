@@ -3533,21 +3533,32 @@ Rispondi con dati precisi dai flussi mensili sopra. Sii conciso ma completo (max
 
   try {
     const GEMINI_KEY = 'AIzaSyA_-RrqlX4y4f1ZhAu8MsjrLXv2BEbafzU';
-    const MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
-    let data, res;
-    for (const model of MODELS) {
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 1000, temperature: 0.3 }
-        })
-      });
-      data = await res.json();
-      if (res.ok && data?.candidates?.[0]?.content?.parts?.[0]?.text) break;
+
+    // Auto-discovery: usa il modello già trovato o ne cerca uno funzionante
+    if (!window._geminiModel) {
+      const candidates = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash','gemini-1.5-flash-8b','gemini-pro'];
+      for (const m of candidates) {
+        try {
+          const probe = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${GEMINI_KEY}`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ contents:[{parts:[{text:'ok'}]}], generationConfig:{maxOutputTokens:5} })
+          });
+          if (probe.ok) { window._geminiModel = m; break; }
+        } catch(_) {}
+      }
+      if (!window._geminiModel) throw new Error('Nessun modello Gemini disponibile. Verifica la chiave API.');
     }
-    if (!res.ok) throw new Error(`API error ${res.status}: ${data?.error?.message || JSON.stringify(data)}`);
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${window._geminiModel}:generateContent?key=${GEMINI_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.3 }
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { window._geminiModel = null; throw new Error(`API error ${res.status}: ${data?.error?.message}`); }
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Nessuna risposta ricevuta.';
 
     // Render markdown-lite

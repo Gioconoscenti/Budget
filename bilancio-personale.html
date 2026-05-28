@@ -1594,32 +1594,45 @@ document.addEventListener('click', () => {
 });
 
 // Resetta tutti i filtri periodo in modo pulito
-function _resetPeriodState() {
-  period = ''; yearF = ''; monthF = '';
+function _resetMonths() {
   selectedMonths.clear();
-  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('#mo-multi-grid button').forEach(b => {
     b.classList.remove('active'); b.style.background=''; b.style.borderColor=''; b.style.color='';
   });
-  const yrSel = document.getElementById('yr-sel');
-  if (yrSel) yrSel.value = '';
   updateMoBtn();
 }
 
+function _resetPeriodState() {
+  period = ''; yearF = ''; monthF = '';
+  _resetMonths();
+  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
+  const yrSel = document.getElementById('yr-sel');
+  if (yrSel) yrSel.value = '';
+}
+
 function setPeriod(btn, p) {
-  _resetPeriodState();
+  period = p; yearF = '';
+  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  period = p;
+  const yrSel = document.getElementById('yr-sel');
+  if (yrSel) yrSel.value = '';
+  _resetMonths();
   applyFilters();
 }
 
 function setYear(y) {
-  _resetPeriodState();
-  yearF = y;
+  yearF = y; period = '';
+  document.querySelectorAll('.fb[data-p]').forEach(b => b.classList.remove('active'));
+  _resetMonths();
   applyFilters();
 }
 
 function setMonth(m) { monthF = m; applyFilters(); }
+
+function applyMonths() {
+  document.getElementById('mo-multi-panel').style.display = 'none';
+  applyFilters();
+}
 
 function applyFilters() {
   const now = new Date();
@@ -1635,7 +1648,7 @@ function applyFilters() {
     const d = r.data;
     if (!d || !(d instanceof Date) || isNaN(d)) return false;
 
-    // ── Filtri periodo (mutuamente esclusivi tranne anno+mesi) ──
+    // ── Filtro periodo preset ──
     if (period === 'thismonth') {
       if (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) return false;
     } else if (period === 'lastmonth') {
@@ -1643,11 +1656,13 @@ function applyFilters() {
       if (d.getFullYear() !== lm.getFullYear() || d.getMonth() !== lm.getMonth()) return false;
     } else if (period === 'thisyear') {
       if (d.getFullYear() !== now.getFullYear()) return false;
-    } else {
-      // Modalità libera: anno e/o mesi
-      if (yearF && d.getFullYear() !== parseInt(yearF)) return false;
-      if (selectedMonths.size > 0 && !selectedMonths.has(d.getMonth() + 1)) return false;
     }
+
+    // ── Filtro anno libero (select Anno…) ──
+    if (yearF && d.getFullYear() !== parseInt(yearF)) return false;
+
+    // ── Filtro mesi multipli — si applica SEMPRE come filtro aggiuntivo ──
+    if (selectedMonths.size > 0 && !selectedMonths.has(d.getMonth() + 1)) return false;
 
     // ── Range date manuale ──
     if (dateFrom) { const df = parseD(dateFrom); if (df && d < df) return false; }

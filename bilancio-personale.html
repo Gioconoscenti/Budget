@@ -411,6 +411,7 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
         <button class="btn ghost sm acq-btn" id="acq-gio" onclick="setAcquirente('gioacchino')" style="font-size:9px;padding:4px 10px">Gioacchino</button>
         <button class="btn ghost sm acq-btn" id="acq-ale" onclick="setAcquirente('alessandra')" style="font-size:9px;padding:4px 10px">Alessandra</button>
       </div>
+      <select class="fb" id="g-src-sel" onchange="setGlobal('sourceG',this.value)"><option value="">Tutte le fonti</option></select>
     </div>
   </div>
 
@@ -1501,6 +1502,11 @@ function fillDrops() {
   const gcof = document.getElementById('g-cnt-sel'), gcv = gcof.value;
   gcof.innerHTML = '<option value="">Conto…</option>';
   conti.forEach(c => { const o = new Option(c, c); if (c === gcv) o.selected = true; gcof.add(o); });
+
+  const srcs = [...new Set(allTx.map(r => r.source).filter(Boolean))].sort();
+  const gsrf = document.getElementById('g-src-sel'), gsrv = gsrf.value;
+  gsrf.innerHTML = '<option value="">Tutte le fonti</option>';
+  srcs.forEach(s => { const o = new Option(SRC_LABELS[s] || s, s); if (s === gsrv) o.selected = true; gsrf.add(o); });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1671,6 +1677,7 @@ function applyFilters() {
     // ── Filtri globali ──
     if (contoG && r.conto !== contoG) return false;
     if (acquirenteG && (r.acquirente||'').toLowerCase() !== acquirenteG) return false;
+    if (sourceG && r.source !== sourceG) return false;
 
     // ── Filtri tabella transazioni ──
     if (tipo && r.tipo !== tipo) return false;

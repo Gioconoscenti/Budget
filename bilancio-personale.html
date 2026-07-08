@@ -322,9 +322,9 @@ tbody tr:hover{background:rgba(91,106,245,.04);}
   #sec-transazioni table { table-layout:fixed; width:100%; }
   #sec-transazioni th { position:relative; overflow:hidden; white-space:nowrap; }
   .col-resizer {
-    position:absolute; right:0; top:0; width:5px; height:100%;
+    position:absolute; right:-4px; top:0; width:10px; height:100%;
     cursor:col-resize; user-select:none; z-index:10;
-    background:transparent;
+    background:transparent; touch-action:none;
   }
   .col-resizer:hover, .col-resizer.active { background:var(--acc); opacity:.5; }
 
@@ -1733,6 +1733,24 @@ function initColResize() {
   const table = document.querySelector('#sec-transazioni table');
   if (!table) return;
   const headers = table.querySelectorAll('th');
+
+  // Alla prima interazione "sblocca" la tabella: congela le larghezze attuali
+  // in px cosi allargare una colonna fa crescere la tabella (scroll orizzontale
+  // nel .tbl-wrap) invece di restringere le altre. La larghezza della tabella
+  // viene ricalcolata a mano (somma colonne) invece di affidarsi a width:auto,
+  // che con table-layout:fixed non sempre "sborda" in modo affidabile.
+  function tableWidth() {
+    let sum = 0;
+    headers.forEach(th => { sum += th.offsetWidth; });
+    return sum;
+  }
+  function unlockWidth() {
+    if (table.dataset.freeWidth) return;
+    headers.forEach(th => { th.style.width = th.offsetWidth + 'px'; });
+    table.style.width = tableWidth() + 'px';
+    table.dataset.freeWidth = '1';
+  }
+
   headers.forEach((th, i) => {
     // Rimuovi resizer precedente
     const old = th.querySelector('.col-resizer');
@@ -1742,21 +1760,25 @@ function initColResize() {
     resizer.className = 'col-resizer';
     th.appendChild(resizer);
     let startX, startW;
-    resizer.addEventListener('mousedown', e => {
-      startX = e.pageX;
+    const onMove = ev => {
+      const w = Math.max(40, startW + ev.clientX - startX);
+      th.style.width = w + 'px';
+      table.style.width = tableWidth() + 'px';
+    };
+    const onUp = ev => {
+      resizer.classList.remove('active');
+      try { resizer.releasePointerCapture(ev.pointerId); } catch(_) {}
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+    resizer.addEventListener('pointerdown', e => {
+      unlockWidth();
+      startX = e.clientX;
       startW = th.offsetWidth;
       resizer.classList.add('active');
-      const onMove = ev => {
-        const w = Math.max(40, startW + ev.pageX - startX);
-        th.style.width = w + 'px';
-      };
-      const onUp = () => {
-        resizer.classList.remove('active');
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      resizer.setPointerCapture(e.pointerId);
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
       e.preventDefault();
     });
   });
